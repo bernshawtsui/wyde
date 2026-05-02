@@ -552,6 +552,66 @@ body.resizing * {
   border-radius: 4px;
 }
 
+.mermaid-block {
+  display: flex;
+  justify-content: center;
+  margin: 1.2em 0;
+  padding: 12px 8px;
+  overflow-x: auto;
+  background: var(--code-bg);
+  border-radius: 6px;
+}
+
+.mermaid-block svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1.2em 0;
+  padding: 24px;
+  background: var(--code-bg);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mermaid-error {
+  margin: 1.2em 0;
+  padding: 12px;
+  background: #fff0f0;
+  border: 1px solid #f4c7c7;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #b62324;
+}
+
+.mermaid-error strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.mermaid-error pre {
+  margin: 4px 0;
+  background: transparent;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mermaid-error details {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.mermaid-error summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
 .editable-block {
   border-radius: 4px;
   transition: background 0.08s;

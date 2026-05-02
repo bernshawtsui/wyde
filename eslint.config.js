@@ -5,7 +5,13 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist", "src-tauri/target", "src-tauri/gen", "node_modules"],
+    ignores: [
+      "dist",
+      "src-tauri/target",
+      "src-tauri/gen",
+      "node_modules",
+      "coverage",
+    ],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

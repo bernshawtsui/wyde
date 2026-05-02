@@ -4,6 +4,7 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
 import { EditableBlock } from "./EditableBlock";
 import { EditableCell } from "./EditableCell";
+import { MermaidBlock } from "./MermaidBlock";
 import { Properties } from "./Properties";
 import { ResizableTable } from "./ResizableTable";
 import { extractFrontmatter } from "./frontmatter";
@@ -115,6 +116,24 @@ export function TabContent({
                 {children}
               </a>
             ),
+            code: ({ className, children, ...rest }) => {
+              // react-markdown gives fenced code blocks a `language-X`
+              // class; inline code has no such class. Route mermaid to
+              // its own renderer; everything else falls through.
+              const langMatch = /language-(\w+)/.exec(className ?? "");
+              if (langMatch?.[1] === "mermaid") {
+                return (
+                  <MermaidBlock
+                    source={String(children).replace(/\n$/, "")}
+                  />
+                );
+              }
+              return (
+                <code className={className} {...rest}>
+                  {children}
+                </code>
+              );
+            },
             table: ({ node, children }) => {
               const offset = node?.position?.start.offset ?? 0;
               return (

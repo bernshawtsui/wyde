@@ -49,6 +49,7 @@ src/                    React app
   ResizableTable.tsx    Column-resize wrapper for <table>
   EditableCell.tsx      Click-to-edit <td>
   EditableBlock.tsx     Double-click-to-edit paragraphs / headings / list items
+  MermaidBlock.tsx      Renders ```mermaid``` fenced blocks as SVG diagrams
   Properties.tsx        YAML frontmatter "Properties" panel
   markdown-edit.ts      Surgical AST cell + block replacement
   frontmatter.ts        YAML frontmatter parser
