@@ -5,6 +5,8 @@ import type { MarkdownFile } from "./fs";
 interface SidebarProps {
   files: MarkdownFile[];
   selectedPath: string | null;
+  /** Paths currently open as tabs (subset includes selectedPath when active). */
+  openPaths?: ReadonlySet<string>;
   onSelect: (path: string) => void;
 }
 
@@ -80,7 +82,12 @@ const DEFAULT_WIDTH = 240;
 const MIN_WIDTH = 140;
 const MAX_WIDTH = 600;
 
-export function Sidebar({ files, selectedPath, onSelect }: SidebarProps) {
+export function Sidebar({
+  files,
+  selectedPath,
+  openPaths,
+  onSelect,
+}: SidebarProps) {
   const tree = useMemo(() => buildTree(files), [files]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
@@ -153,6 +160,7 @@ export function Sidebar({ files, selectedPath, onSelect }: SidebarProps) {
               depth={0}
               collapsed={collapsed}
               selectedPath={selectedPath}
+              openPaths={openPaths}
               onToggle={toggle}
               onSelect={onSelect}
             />
@@ -173,6 +181,7 @@ interface TreeItemProps {
   depth: number;
   collapsed: Set<string>;
   selectedPath: string | null;
+  openPaths?: ReadonlySet<string>;
   onToggle: (relPath: string) => void;
   onSelect: (path: string) => void;
 }
@@ -182,16 +191,19 @@ function TreeItem({
   depth,
   collapsed,
   selectedPath,
+  openPaths,
   onToggle,
   onSelect,
 }: TreeItemProps) {
   const indent = 6 + depth * 14;
   if (node.kind === "file") {
+    const isActive = selectedPath === node.path;
+    const isOpen = !isActive && (openPaths?.has(node.path) ?? false);
     return (
       <button
         type="button"
         className={`tree-row file-row${
-          selectedPath === node.path ? " selected" : ""
+          isActive ? " selected" : isOpen ? " open" : ""
         }`}
         style={{ paddingLeft: `${indent + 14}px` }}
         onClick={() => onSelect(node.path)}
@@ -221,6 +233,7 @@ function TreeItem({
             depth={depth + 1}
             collapsed={collapsed}
             selectedPath={selectedPath}
+            openPaths={openPaths}
             onToggle={onToggle}
             onSelect={onSelect}
           />

@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkFrontmatter from "remark-frontmatter";
-import remarkGfm from "remark-gfm";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { basename } from "@tauri-apps/api/path";
@@ -9,118 +6,252 @@ import {
   WebviewWindow,
   getCurrentWebviewWindow,
 } from "@tauri-apps/api/webviewWindow";
-import { EditableBlock } from "./EditableBlock";
-import { EditableCell } from "./EditableCell";
-import { Properties } from "./Properties";
-import { ResizableTable } from "./ResizableTable";
 import { Sidebar } from "./Sidebar";
-import { extractFrontmatter } from "./frontmatter";
+import { TabBar } from "./TabBar";
+import { TabContent, type Tab } from "./TabContent";
 import { type MarkdownFile, readFile, writeFile } from "./fs";
 import { useDragDropFolder } from "./hooks/useDragDropFolder";
-import { useFileWatcher } from "./hooks/useFileWatcher";
 import { useFolderFiles } from "./hooks/useFolderFiles";
 import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
 import { useZoom } from "./hooks/useZoom";
 import { errorMessage } from "./lib/error";
-import { applyBlockEdit, applyCellEdit } from "./markdown-edit";
 
 export default function App() {
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [folderName, setFolderName] = useState<string>("");
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [source, setSource] = useState<string>("");
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string>("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const { fm } = useMemo(() => extractFrontmatter(source), [source]);
-
   const { files, error: filesError } = useFolderFiles(folderPath);
 
-  const sourceRef = useRef<string>("");
-  const editingCountRef = useRef(0);
-  const pendingRefreshRef = useRef(false);
-  const selectedPathRef = useRef<string | null>(null);
+  // Per-path edit/refresh tracking (replaces the old single-document refs).
+  const editingCountRef = useRef<Map<string, number>>(new Map());
+  const pendingRefreshRef = useRef<Set<string>>(new Set());
+  const tabsRef = useRef<Tab[]>([]);
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
 
-  useEffect(() => {
-    sourceRef.current = source;
-  }, [source]);
-  useEffect(() => {
-    selectedPathRef.current = selectedPath;
-  }, [selectedPath]);
   useEffect(() => {
     if (filesError) setError(filesError);
   }, [filesError]);
 
-  const fetchFile = useCallback(async (filePath: string) => {
+  const activeTab: Tab | undefined = tabs[activeTabIndex];
+  const activePath = activeTab?.path ?? null;
+
+  const openPaths = useMemo(
+    () => new Set(tabs.map((t) => t.path)),
+    [tabs]
+  );
+
+  // Tab basenames for display in TabBar (resolved async via Tauri's path lib).
+  const [basenames, setBasenames] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(tabs.map((t) => basename(t.path).catch(() => t.path))).then(
+      (names) => {
+        if (!cancelled) setBasenames(names);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [tabs]);
+
+  const updateTab = useCallback(
+    (path: string, mutator: (t: Tab) => Tab) => {
+      setTabs((prev) =>
+        prev.map((t) => (t.path === path ? mutator(t) : t))
+      );
+    },
+    []
+  );
+
+  const refreshTab = useCallback(async (path: string) => {
     try {
-      const text = await readFile(filePath);
-      if (selectedPathRef.current !== filePath) return;
-      setSource(text);
-      sourceRef.current = text;
+      const text = await readFile(path);
+      // Look up the latest tab state at apply time (in case tabs changed).
+      setTabs((prev) =>
+        prev.map((t) => (t.path === path ? { ...t, source: text } : t))
+      );
       setError(null);
     } catch (e) {
       setError(`load: ${errorMessage(e)}`);
     }
   }, []);
 
-  const maybeRefresh = useCallback(() => {
-    if (!pendingRefreshRef.current) return;
-    if (editingCountRef.current > 0) return;
-    const f = selectedPathRef.current;
-    if (!f) return;
-    pendingRefreshRef.current = false;
-    void fetchFile(f);
-  }, [fetchFile]);
+  const onWatcherChange = useCallback(
+    (path: string) => {
+      const editing = editingCountRef.current.get(path) ?? 0;
+      if (editing > 0) {
+        pendingRefreshRef.current.add(path);
+        return;
+      }
+      void refreshTab(path);
+    },
+    [refreshTab]
+  );
 
-  const onWatcherChange = useCallback(() => {
-    pendingRefreshRef.current = true;
-    maybeRefresh();
-  }, [maybeRefresh]);
+  const onEditStart = useCallback((path: string) => {
+    const next = (editingCountRef.current.get(path) ?? 0) + 1;
+    editingCountRef.current.set(path, next);
+  }, []);
 
-  useFileWatcher(selectedPath, onWatcherChange);
+  const onEditEnd = useCallback(
+    (path: string) => {
+      const next = Math.max(0, (editingCountRef.current.get(path) ?? 0) - 1);
+      editingCountRef.current.set(path, next);
+      if (next === 0 && pendingRefreshRef.current.has(path)) {
+        pendingRefreshRef.current.delete(path);
+        void refreshTab(path);
+      }
+    },
+    [refreshTab]
+  );
+
+  const onSourceCommit = useCallback(
+    async (path: string, next: string) => {
+      updateTab(path, (t) => ({ ...t, source: next }));
+      setSaveStatus("saving…");
+      try {
+        await writeFile(path, next);
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus(""), 1200);
+      } catch (e) {
+        setSaveStatus("");
+        setError(`save: ${errorMessage(e)}`);
+      }
+    },
+    [updateTab]
+  );
+
+  const onWidthsChange = useCallback(
+    (path: string, tableOffset: number, w: number[]) => {
+      updateTab(path, (t) => ({
+        ...t,
+        widthsByTableOffset: { ...t.widthsByTableOffset, [tableOffset]: w },
+      }));
+    },
+    [updateTab]
+  );
+
+  const openTab = useCallback(
+    async (path: string) => {
+      // If already open, just activate.
+      const existing = tabsRef.current.findIndex((t) => t.path === path);
+      if (existing !== -1) {
+        setActiveTabIndex(existing);
+        return;
+      }
+      try {
+        const text = await readFile(path);
+        const newTab: Tab = {
+          path,
+          source: text,
+          widthsByTableOffset: {},
+        };
+        setTabs((prev) => {
+          const next = [...prev, newTab];
+          // Activate the newly added tab using its post-insertion index.
+          setActiveTabIndex(next.length - 1);
+          return next;
+        });
+      } catch (e) {
+        setError(`load: ${errorMessage(e)}`);
+      }
+    },
+    []
+  );
+
+  const closeTab = useCallback((index: number) => {
+    setTabs((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      // Recompute active index relative to closed position.
+      setActiveTabIndex((cur) => {
+        if (next.length === 0) return 0;
+        if (index < cur) return cur - 1;
+        if (index === cur) return Math.max(0, Math.min(cur, next.length - 1));
+        return cur;
+      });
+      // Drop per-path tracking for the closed file.
+      const closed = prev[index];
+      if (closed) {
+        editingCountRef.current.delete(closed.path);
+        pendingRefreshRef.current.delete(closed.path);
+      }
+      return next;
+    });
+  }, []);
+
+  const closeActiveTab = useCallback(() => {
+    if (tabsRef.current.length === 0) return;
+    closeTab(activeTabIndex);
+  }, [activeTabIndex, closeTab]);
+
+  const nextTab = useCallback(() => {
+    if (tabsRef.current.length < 2) return;
+    setActiveTabIndex((i) => (i + 1) % tabsRef.current.length);
+  }, []);
+
+  const prevTab = useCallback(() => {
+    if (tabsRef.current.length < 2) return;
+    setActiveTabIndex(
+      (i) => (i - 1 + tabsRef.current.length) % tabsRef.current.length
+    );
+  }, []);
+
+  const onSelectFile = useCallback(
+    (path: string) => {
+      void openTab(path);
+    },
+    [openTab]
+  );
 
   // Auto-pick test.md or first file when the folder loads / changes.
   useEffect(() => {
+    if (!folderPath) return;
     if (files.length === 0) {
-      setSelectedPath(null);
+      setTabs([]);
+      setActiveTabIndex(0);
       return;
     }
-    setSelectedPath((current) => {
-      if (current && files.some((f) => f.path === current)) return current;
-      const test = files.find((f) => f.name === "test.md");
-      return (test ?? files[0]).path;
-    });
-  }, [files]);
+    // Only auto-pick when there are no tabs yet (fresh folder open).
+    if (tabsRef.current.length > 0) return;
+    const test = files.find((f) => f.name === "test.md");
+    const first = test ?? files[0];
+    void openTab(first.path);
+  }, [files, folderPath, openTab]);
 
-  // Fetch contents on file selection
-  useEffect(() => {
-    if (!selectedPath) {
-      setSource("");
-      sourceRef.current = "";
-      return;
-    }
-    void fetchFile(selectedPath);
-  }, [selectedPath, fetchFile]);
-
-  const openFolder = useCallback(async (absPath: string) => {
-    setFolderPath(absPath);
-    setError(null);
-    try {
-      const name = await basename(absPath);
-      setFolderName(name);
-      void getCurrentWebviewWindow().setTitle(`${name} — wyde`);
-    } catch {
-      setFolderName(absPath);
-    }
-  }, []);
+  const openFolder = useCallback(
+    async (absPath: string) => {
+      // New folder: drop existing tabs, clear edit/refresh tracking.
+      setTabs([]);
+      setActiveTabIndex(0);
+      editingCountRef.current.clear();
+      pendingRefreshRef.current.clear();
+      setFolderPath(absPath);
+      setError(null);
+      try {
+        const name = await basename(absPath);
+        setFolderName(name);
+        void getCurrentWebviewWindow().setTitle(`${name} — wyde`);
+      } catch {
+        setFolderName(absPath);
+      }
+    },
+    []
+  );
 
   const closeFolder = useCallback(() => {
     setFolderPath(null);
     setFolderName("");
-    setSelectedPath(null);
-    setSource("");
-    sourceRef.current = "";
+    setTabs([]);
+    setActiveTabIndex(0);
+    editingCountRef.current.clear();
+    pendingRefreshRef.current.clear();
     void getCurrentWebviewWindow().setTitle("wyde");
   }, []);
 
@@ -155,14 +286,11 @@ export default function App() {
     setSidebarCollapsed((c) => !c);
   }, []);
 
-  const refreshCurrentFile = useCallback(() => {
-    const f = selectedPathRef.current;
-    if (!f) return;
-    // Bypass the deferred-refresh / editing-count gate; user is explicitly
-    // asking for a re-read right now.
-    pendingRefreshRef.current = false;
-    void fetchFile(f);
-  }, [fetchFile]);
+  const refreshActiveTab = useCallback(() => {
+    if (!activePath) return;
+    pendingRefreshRef.current.delete(activePath);
+    void refreshTab(activePath);
+  }, [activePath, refreshTab]);
 
   const openExternalUrl = useCallback((url: string) => {
     void openUrl(url).catch((err) => {
@@ -175,58 +303,14 @@ export default function App() {
     onOpenFolder: pickFolder,
     onNewWindow: newWindow,
     onToggleSidebar: toggleSidebar,
-    onRefresh: refreshCurrentFile,
+    onRefresh: refreshActiveTab,
+    onCloseTab: closeActiveTab,
+    onNextTab: nextTab,
+    onPrevTab: prevTab,
   });
   const zoom = useZoom();
 
-  const handleEditStart = useCallback(() => {
-    editingCountRef.current += 1;
-  }, []);
-
-  const handleEditEnd = useCallback(() => {
-    editingCountRef.current = Math.max(0, editingCountRef.current - 1);
-    if (editingCountRef.current === 0) maybeRefresh();
-  }, [maybeRefresh]);
-
-  const persistSource = useCallback(async (next: string) => {
-    const f = selectedPathRef.current;
-    if (!f) return;
-    setSource(next);
-    sourceRef.current = next;
-    setSaveStatus("saving…");
-    try {
-      await writeFile(f, next);
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus(""), 1200);
-    } catch (e) {
-      setSaveStatus("");
-      setError(`save: ${errorMessage(e)}`);
-    }
-  }, []);
-
-  const handleCommit = useCallback(
-    async (cellOffset: number, newValue: string) => {
-      const current = sourceRef.current;
-      const next = applyCellEdit(current, cellOffset, newValue);
-      if (next == null || next === current) return;
-      await persistSource(next);
-    },
-    [persistSource]
-  );
-
-  const handleBlockCommit = useCallback(
-    async (startOffset: number, endOffset: number, newSource: string) => {
-      const current = sourceRef.current;
-      const next = applyBlockEdit(current, startOffset, endOffset, newSource);
-      if (next === current) return;
-      await persistSource(next);
-    },
-    [persistSource]
-  );
-
-  const selectedName = files.find(
-    (f: MarkdownFile) => f.path === selectedPath
-  )?.name;
+  const activeBasename = activeTab ? basenames[activeTabIndex] : undefined;
 
   return (
     <div className="app" style={{ zoom }}>
@@ -253,12 +337,14 @@ export default function App() {
               {folderName || folderPath}
             </button>
             <span className="topbar-sep">/</span>
-            <span className="filename">{selectedName ?? "(no file)"}</span>
-            {selectedPath && (
+            <span className="filename">
+              {activeBasename ?? "(no file)"}
+            </span>
+            {activePath && (
               <button
                 type="button"
                 className="topbar-action topbar-refresh"
-                onClick={refreshCurrentFile}
+                onClick={refreshActiveTab}
                 title="Refresh (⌘R)"
                 aria-label="Refresh file from disk"
               >
@@ -287,174 +373,66 @@ export default function App() {
         {folderPath && !sidebarCollapsed && (
           <Sidebar
             files={files}
-            selectedPath={selectedPath}
-            onSelect={setSelectedPath}
+            selectedPath={activePath}
+            openPaths={openPaths}
+            onSelect={onSelectFile}
           />
         )}
-        <main className="content">
-          <div className="content-inner">
-            {!folderPath ? (
-              <div className="empty-state">
-                <h2>Drag a folder here</h2>
-                <p>or press ⌘O to pick one.</p>
-                <button type="button" className="primary" onClick={pickFolder}>
-                  Open Folder…
-                </button>
-                <p className="muted small">⌘N opens a new empty window.</p>
+        <main className="main">
+          {folderPath && tabs.length > 0 && (
+            <TabBar
+              tabs={tabs}
+              activeIndex={activeTabIndex}
+              basenames={basenames}
+              onActivate={setActiveTabIndex}
+              onClose={closeTab}
+            />
+          )}
+          {!folderPath ? (
+            <div className="content">
+              <div className="content-inner">
+                <div className="empty-state">
+                  <h2>Drag a folder here</h2>
+                  <p>or press ⌘O to pick one.</p>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={pickFolder}
+                  >
+                    Open Folder…
+                  </button>
+                  <p className="muted small">⌘N opens a new empty window.</p>
+                </div>
               </div>
-            ) : selectedPath ? (
-              <>
-                {fm && <Properties fm={fm} onOpenUrl={openExternalUrl} />}
-                <ReactMarkdown
-                  key={selectedPath}
-                  remarkPlugins={[remarkGfm, remarkFrontmatter]}
-                  components={{
-                    a: ({ href, children, ...rest }) => (
-                      <a
-                        {...rest}
-                        href={href}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (e.metaKey && href) {
-                            e.stopPropagation();
-                            void openUrl(href).catch((err) => {
-                              console.error("openUrl failed:", err);
-                            });
-                          }
-                        }}
-                      >
-                        {children}
-                      </a>
-                    ),
-                    table: (props) => (
-                      <div className="table-wrap">
-                        <ResizableTable>{props.children}</ResizableTable>
-                      </div>
-                    ),
-                    td: (props) => (
-                      <EditableCell
-                        {...props}
-                        source={source}
-                        onCommit={handleCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      />
-                    ),
-                    p: ({ node, children }) => (
-                      <EditableBlock
-                        as="p"
-                        node={node}
-                        source={source}
-                        onCommit={handleBlockCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      >
-                        {children}
-                      </EditableBlock>
-                    ),
-                    li: ({ node, children }) => (
-                      <EditableBlock
-                        as="li"
-                        node={node}
-                        source={source}
-                        onCommit={handleBlockCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      >
-                        {children}
-                      </EditableBlock>
-                    ),
-                    h1: ({ node, children }) => (
-                      <EditableBlock
-                        as="h1"
-                        multiline={false}
-                        node={node}
-                        source={source}
-                        onCommit={handleBlockCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      >
-                        {children}
-                      </EditableBlock>
-                    ),
-                    h2: ({ node, children }) => (
-                      <EditableBlock
-                        as="h2"
-                        multiline={false}
-                        node={node}
-                        source={source}
-                        onCommit={handleBlockCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      >
-                        {children}
-                      </EditableBlock>
-                    ),
-                    h3: ({ node, children }) => (
-                      <EditableBlock
-                        as="h3"
-                        multiline={false}
-                        node={node}
-                        source={source}
-                        onCommit={handleBlockCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      >
-                        {children}
-                      </EditableBlock>
-                    ),
-                    h4: ({ node, children }) => (
-                      <EditableBlock
-                        as="h4"
-                        multiline={false}
-                        node={node}
-                        source={source}
-                        onCommit={handleBlockCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      >
-                        {children}
-                      </EditableBlock>
-                    ),
-                    h5: ({ node, children }) => (
-                      <EditableBlock
-                        as="h5"
-                        multiline={false}
-                        node={node}
-                        source={source}
-                        onCommit={handleBlockCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      >
-                        {children}
-                      </EditableBlock>
-                    ),
-                    h6: ({ node, children }) => (
-                      <EditableBlock
-                        as="h6"
-                        multiline={false}
-                        node={node}
-                        source={source}
-                        onCommit={handleBlockCommit}
-                        onEditStart={handleEditStart}
-                        onEditEnd={handleEditEnd}
-                      >
-                        {children}
-                      </EditableBlock>
-                    ),
-                  }}
-                >
-                  {source}
-                </ReactMarkdown>
-              </>
-            ) : (
-              <div className="empty-state">
-                <p className="muted">no file selected</p>
+            </div>
+          ) : tabs.length === 0 ? (
+            <div className="content">
+              <div className="content-inner">
+                <div className="empty-state">
+                  <p className="muted">no file selected</p>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            tabs.map((tab, i) => (
+              <TabContent
+                key={tab.path}
+                tab={tab}
+                isActive={i === activeTabIndex}
+                onSourceCommit={onSourceCommit}
+                onWidthsChange={onWidthsChange}
+                onEditStart={onEditStart}
+                onEditEnd={onEditEnd}
+                onWatcherChange={onWatcherChange}
+                onOpenUrl={openExternalUrl}
+              />
+            ))
+          )}
         </main>
       </div>
     </div>
   );
 }
+
+// MarkdownFile is referenced indirectly via Sidebar; keep the type import alive.
+export type { MarkdownFile };
