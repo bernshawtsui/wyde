@@ -34,15 +34,31 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Install npm dependencies
+      - name: Install npm dependencies (with retry + verify)
         run: |
-          npm ci
-          # `npm ci` on the macOS runner sometimes leaves
-          # node_modules/.bin/* symlinks missing (npm/cli #2147, #4308).
-          # `npm rebuild` is idempotent and re-links every binary from
-          # the already-installed packages.
-          npm rebuild
-          ls node_modules/.bin | head -20
+          # Workaround for npm/cli #7672 — `npm ci` sometimes prints
+          # "Exit handler never called!" and exits 0 *without installing
+          # anything*. Detect that by checking that bin shims exist;
+          # retry up to 3 times before failing the build loudly.
+          set +e
+          for attempt in 1 2 3; do
+            echo "::group::npm ci attempt $attempt"
+            rm -rf node_modules
+            npm ci
+            npm rebuild
+            echo "::endgroup::"
+            if [ -x node_modules/.bin/tsc ] \
+               && [ -x node_modules/.bin/vite ] \
+               && [ -x node_modules/.bin/tauri ]; then
+              echo "✓ install verified on attempt $attempt"
+              ls node_modules/.bin | head -25
+              exit 0
+            fi
+            echo "✗ install incomplete on attempt $attempt — bin shims missing; retrying"
+            sleep 5
+          done
+          echo "::error::npm ci silently failed 3 times. See npm/cli #7672."
+          exit 1
 
       - name: Install Tauri CLI globally (CI fallback)
         run: |
