@@ -51,6 +51,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          # Skip the action's `npm run tauri --` default; the npm-script
+          # path is brittle in CI (the local `tauri` shim sometimes isn't
+          # present after `npm ci`). With our global install step above,
+          # `tauri` is already on PATH — invoke it directly.
+          tauriScript: tauri
           tagName: ${{ github.ref_name }}
           releaseName: "wyde ${{ github.ref_name }}"
           releaseBody: |
