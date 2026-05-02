@@ -1,0 +1,60 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust (with both Apple targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache cargo build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build and release wyde.app (universal)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "wyde ${{ github.ref_name }}"
+          releaseBody: |
+            ## Install
+
+            Download `wyde_*_universal.dmg` below.
+
+            1. Open the `.dmg` and drag **wyde** to `/Applications`.
+            2. **First launch:** right-click `wyde` → **Open** to dismiss the
+               unsigned-developer Gatekeeper warning. Subsequent launches
+               are normal double-clicks.
+
+            See the README for details.
+          releaseDraft: true
+          prerelease: false
+          args: --target universal-apple-darwin
