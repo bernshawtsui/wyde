@@ -3,16 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "tauri dev",
     "build": "tsc -b && vite build",
-    "tauri": "npx tauri",
     "vite": "vite",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "dist": "npm run tauri build && mkdir -p releases && rm -f releases/wyde.zip && (cd src-tauri/target/release/bundle/macos && zip -ry ../../../../../releases/wyde.zip wyde.app) && echo 'Wrote releases/wyde.zip'"
+    "dist": "pnpm tauri build && mkdir -p releases && rm -f releases/wyde.zip && (cd src-tauri/target/release/bundle/macos && zip -ry ../../../../../releases/wyde.zip wyde.app) && echo 'Wrote releases/wyde.zip'"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",

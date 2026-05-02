@@ -44,7 +44,7 @@ git push -u origin main
 For quick shares without cutting a real release:
 
 ```bash
-npm run dist
+pnpm dist
 ```
 
 Produces `releases/wyde.zip` at the repo root — built for whatever

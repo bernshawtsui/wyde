@@ -18,11 +18,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node 22 LTS
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Setup Rust (with both Apple targets)
         uses: dtolnay/rust-toolchain@stable
@@ -34,56 +39,14 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Update npm to latest
-        run: |
-          # The runner's bundled npm has a known silent-failure bug
-          # (npm/cli #7672 — "Exit handler never called!" exits 0 without
-          # installing anything). Upgrading npm first picks up the fix.
-          # `npm install -g` is a different code path and not affected.
-          npm install -g npm@latest
-          echo "node $(node --version) / npm $(npm --version)"
-
-      - name: Install npm dependencies (with retry + verify)
-        run: |
-          set +e
-          for attempt in 1 2 3; do
-            echo "::group::npm ci attempt $attempt"
-            rm -rf node_modules
-            npm ci
-            npm rebuild
-            echo "::endgroup::"
-            if [ -x node_modules/.bin/tsc ] \
-               && [ -x node_modules/.bin/vite ] \
-               && [ -x node_modules/.bin/tauri ]; then
-              echo "✓ install verified on attempt $attempt"
-              ls node_modules/.bin | head -25
-              exit 0
-            fi
-            echo "✗ install incomplete on attempt $attempt — bin shims missing; retrying"
-            sleep 5
-          done
-          echo "::error::npm ci silently failed 3 times even after npm upgrade."
-          exit 1
-
-      - name: Install Tauri CLI globally (CI fallback)
-        run: |
-          # node_modules/.bin/tauri sometimes isn't created on the GitHub
-          # macOS runner after `npm ci`; installing globally puts the CLI
-          # on PATH explicitly so `npx tauri` always resolves.
-          npm install -g @tauri-apps/cli@^2
-          which tauri
-          tauri --version
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build and release wyde.app (universal)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Skip the action's `npm run tauri --` default; the npm-script
-          # path is brittle in CI (the local `tauri` shim sometimes isn't
-          # present after `npm ci`). With our global install step above,
-          # `tauri` is already on PATH — invoke it directly.
-          tauriScript: tauri
           tagName: ${{ github.ref_name }}
           releaseName: "wyde ${{ github.ref_name }}"
           releaseBody: |

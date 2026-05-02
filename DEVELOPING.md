@@ -3,16 +3,18 @@
 ## Prerequisites
 
 - **Node 20+** (see [`.nvmrc`](./.nvmrc))
+- **pnpm 9+** — install via `corepack enable && corepack prepare pnpm@9 --activate`,
+  or `npm install -g pnpm` if you prefer
 - **Rust toolchain** — install via [rustup](https://rustup.rs)
 
 ## Quickstart
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
-`npm run dev` boots Tauri's dev process: Vite serves the React app on
+`pnpm dev` boots Tauri's dev process: Vite serves the React app on
 `http://localhost:5173`, and `cargo run` launches the native window
 pointing at it.
 
@@ -24,16 +26,16 @@ Rust rebuild.
 
 ## Scripts
 
-| script              | what it does                                                |
-| ------------------- | ----------------------------------------------------------- |
-| `npm run dev`       | start the Tauri dev process (Vite + native shell)           |
-| `npm run build`     | type-check and build the web bundle into `dist/`            |
-| `npm run tauri`     | passthrough for the Tauri CLI (`npm run tauri build`, etc.) |
-| `npm run lint`      | ESLint over `src/`                                          |
-| `npm run format`    | Prettier write across the repo                              |
-| `npm run typecheck` | `tsc --noEmit`                                              |
+| script             | what it does                                      |
+| ------------------ | ------------------------------------------------- |
+| `pnpm dev`         | start the Tauri dev process (Vite + native shell) |
+| `pnpm build`       | type-check and build the web bundle into `dist/`  |
+| `pnpm tauri …`     | passthrough to the Tauri CLI (`pnpm tauri build`) |
+| `pnpm lint`        | ESLint over `src/`                                |
+| `pnpm format`      | Prettier write across the repo                    |
+| `pnpm typecheck`   | `tsc --noEmit`                                    |
 
-For release-build commands (`npm run dist`, tag-driven CI), see
+For release-build commands (`pnpm dist`, tag-driven CI), see
 [RELEASING.md](./RELEASING.md).
 
 ## Project layout
@@ -89,3 +91,12 @@ tools editing the same file.
 - **External link clicks** intentionally `preventDefault` so the
   webview never navigates away. Cmd+click opens via
   `@tauri-apps/plugin-opener`.
+
+## Why pnpm
+
+Earlier the project used `npm`, but the GitHub Actions macOS runners
+shipped with two consecutive broken npm versions (silent-failure
+[#7672](https://github.com/npm/cli/issues/7672) on Node 20, and a
+corrupt bundled npm on Node 22). pnpm has its own resolver/installer
+and isn't affected; tauri-action auto-detects pnpm from
+`pnpm-lock.yaml`.
