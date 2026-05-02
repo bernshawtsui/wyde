@@ -26,14 +26,14 @@ Rust rebuild.
 
 ## Scripts
 
-| script             | what it does                                      |
-| ------------------ | ------------------------------------------------- |
-| `pnpm dev`         | start the Tauri dev process (Vite + native shell) |
-| `pnpm build`       | type-check and build the web bundle into `dist/`  |
-| `pnpm tauri …`     | passthrough to the Tauri CLI (`pnpm tauri build`) |
-| `pnpm lint`        | ESLint over `src/`                                |
-| `pnpm format`      | Prettier write across the repo                    |
-| `pnpm typecheck`   | `tsc --noEmit`                                    |
+| script           | what it does                                      |
+| ---------------- | ------------------------------------------------- |
+| `pnpm dev`       | start the Tauri dev process (Vite + native shell) |
+| `pnpm build`     | type-check and build the web bundle into `dist/`  |
+| `pnpm tauri …`   | passthrough to the Tauri CLI (`pnpm tauri build`) |
+| `pnpm lint`      | ESLint over `src/`                                |
+| `pnpm format`    | Prettier write across the repo                    |
+| `pnpm typecheck` | `tsc --noEmit`                                    |
 
 For release-build commands (`pnpm dist`, tag-driven CI), see
 [RELEASING.md](./RELEASING.md).

@@ -1,10 +1,19 @@
-# wyde
+<p align="center">
+  <img src="assets/wyde-logo-with-name.png" alt="wyde" width="220">
+</p>
 
-A native macOS markdown viewer focused on **wide tables**: real `<table>`
-elements with draggable column dividers and inline cell editing. Edits
-write back surgically — only the changed cell touches disk; the rest of
-the file stays byte-identical so `git diff` and external tools see no
-churn.
+<p align="center">
+  A native macOS markdown viewer for wide tables.
+</p>
+
+<p align="center">
+  <img src="assets/demo-1.gif" alt="Demo: dragging the column dividers of a rendered markdown table inside wyde to make a wide table readable" width="780">
+</p>
+
+Real `<table>` elements with draggable column dividers and inline cell
+editing. Edits write back surgically — only the changed cell touches
+disk; the rest of the file stays byte-identical so `git diff` and
+external tools see no churn.
 
 ## Why I built this
 
