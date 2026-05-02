@@ -12,6 +12,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "dist": "pnpm tauri build && mkdir -p releases && rm -f releases/wyde.zip && (cd src-tauri/target/release/bundle/macos && zip -ry ../../../../../releases/wyde.zip wyde.app) && echo 'Wrote releases/wyde.zip'"
   },
   "dependencies": {
@@ -32,18 +35,24 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2.11.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/js-yaml": "^4.0.9",
     "@types/mdast": "^4.0.4",
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^4.1.5",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.5.0",
+    "happy-dom": "^20.9.0",
     "prettier": "^3.8.3",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.59.1",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vitest": "^4.1.5"
   }
 }

@@ -58,6 +58,65 @@ src-tauri/              Rust shell + Tauri config + capabilities
 assets/                 Source assets (logo)
 ```
 
+## Testing
+
+The repo uses **Vitest** + **React Testing Library** + **happy-dom**.
+Tests live next to the code they cover, named `*.test.ts(x)`.
+
+```bash
+pnpm test          # one-shot run
+pnpm test:watch    # re-run on save
+pnpm test:coverage # text + HTML coverage report
+```
+
+### What's covered
+
+- **Pure functions** — `markdown-edit.ts` (surgical-write contract:
+  cell escaping, splice byte-stability, block edits, etc.),
+  `frontmatter.ts` (YAML parse / malformed input handling),
+  `lib/error.ts`.
+- **Components without Tauri deps** — `Sidebar`, `Properties`,
+  `ResizableTable` (drag pipeline incl. commit-on-drop),
+  `EditableCell`, `EditableBlock` (ATX guard, sublist guard,
+  Cmd+Enter behavior), `TabBar`.
+- **Pure hooks** — `useZoom`, `useGlobalShortcuts`.
+
+### What's NOT covered (intentional)
+
+- **Tauri-dependent hooks**: `useFileWatcher`, `useFolderFiles`,
+  `useDragDropFolder`. They wrap `@tauri-apps/plugin-fs` /
+  `@tauri-apps/api/webview`. Mocking those would test our mocks; real
+  coverage needs an E2E setup (`tauri-driver` + WebDriver) which is
+  out of scope here.
+- **`fs.ts`** — same reason; it's an adapter.
+- **`App.tsx` and `TabContent.tsx`** — they pull in the Tauri APIs
+  through hooks. The pieces they orchestrate are individually tested.
+- **Rust shell** — five lines of plugin registration; nothing to
+  test.
+
+### Adding new tests
+
+- Co-locate as `*.test.ts(x)` next to the source file.
+- For pure functions: just import and assert.
+- For components: render with `@testing-library/react`, drive with
+  `@testing-library/user-event`, assert on observable behavior (text,
+  attributes, callback invocations) — never on internal state.
+- For hooks: `renderHook` from `@testing-library/react`, dispatch
+  events on `window`, read `result.current`.
+- If a component depends on a Tauri API, prefer to test the
+  Tauri-free helper underneath. If you must mock, use `vi.mock` on
+  the import boundary.
+
+### CI
+
+Two workflows run on every push:
+
+- `.github/workflows/ci.yml` — typecheck + lint + tests on
+  `ubuntu-latest`. Runs on push to `main` and on PRs.
+- `.github/workflows/release.yml` — runs the same three checks
+  before `tauri build` so a regression fails fast (~30 s) instead of
+  surfacing after the slow Rust compile.
+
 ## Surgical-write architecture
 
 Cell and block edits never re-serialize the whole document. Instead:

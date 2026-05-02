@@ -87,7 +87,9 @@ export function applyBlockEdit(
   blockEndOffset: number,
   newBlockSource: string
 ): string {
-  const trimmed = newBlockSource.replace(/\r?\n+$/, "");
+  // Strip ALL trailing line endings (LF or CRLF, in any combination) so the
+  // user's textarea content doesn't double-newline the source.
+  const trimmed = newBlockSource.replace(/(\r?\n)+$/, "");
   return (
     source.slice(0, blockStartOffset) + trimmed + source.slice(blockEndOffset)
   );
