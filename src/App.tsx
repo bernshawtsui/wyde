@@ -155,6 +155,15 @@ export default function App() {
     setSidebarCollapsed((c) => !c);
   }, []);
 
+  const refreshCurrentFile = useCallback(() => {
+    const f = selectedPathRef.current;
+    if (!f) return;
+    // Bypass the deferred-refresh / editing-count gate; user is explicitly
+    // asking for a re-read right now.
+    pendingRefreshRef.current = false;
+    void fetchFile(f);
+  }, [fetchFile]);
+
   const openExternalUrl = useCallback((url: string) => {
     void openUrl(url).catch((err) => {
       console.error("openUrl failed:", err);
@@ -166,6 +175,7 @@ export default function App() {
     onOpenFolder: pickFolder,
     onNewWindow: newWindow,
     onToggleSidebar: toggleSidebar,
+    onRefresh: refreshCurrentFile,
   });
   const zoom = useZoom();
 
@@ -244,6 +254,17 @@ export default function App() {
             </button>
             <span className="topbar-sep">/</span>
             <span className="filename">{selectedName ?? "(no file)"}</span>
+            {selectedPath && (
+              <button
+                type="button"
+                className="topbar-action topbar-refresh"
+                onClick={refreshCurrentFile}
+                title="Refresh (⌘R)"
+                aria-label="Refresh file from disk"
+              >
+                ↻
+              </button>
+            )}
             <button
               type="button"
               className="topbar-action"

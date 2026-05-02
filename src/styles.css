@@ -387,6 +387,12 @@ body.resizing * {
   margin-right: 8px;
 }
 
+.topbar-refresh {
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 8px;
+}
+
 .properties-panel {
   margin: 0 0 1.5em;
   padding: 12px 0 16px;
