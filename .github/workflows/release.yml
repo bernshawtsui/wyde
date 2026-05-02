@@ -35,7 +35,14 @@ jobs:
           workspaces: src-tauri -> target
 
       - name: Install npm dependencies
-        run: npm ci
+        run: |
+          npm ci
+          # `npm ci` on the macOS runner sometimes leaves
+          # node_modules/.bin/* symlinks missing (npm/cli #2147, #4308).
+          # `npm rebuild` is idempotent and re-links every binary from
+          # the already-installed packages.
+          npm rebuild
+          ls node_modules/.bin | head -20
 
       - name: Install Tauri CLI globally (CI fallback)
         run: |
