@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tsc -b && vite build",
-    "tauri": "tauri",
+    "tauri": "npx tauri",
     "vite": "vite",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
