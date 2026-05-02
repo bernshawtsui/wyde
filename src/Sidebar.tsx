@@ -142,20 +142,22 @@ export function Sidebar({ files, selectedPath, onSelect }: SidebarProps) {
 
   return (
     <aside className="sidebar" style={{ width: `${width}px` }}>
-      <div className="sidebar-header">Files</div>
-      <div className="file-tree">
-        {tree.length === 0 && <div className="empty">no .md files</div>}
-        {tree.map((node) => (
-          <TreeItem
-            key={nodeKey(node)}
-            node={node}
-            depth={0}
-            collapsed={collapsed}
-            selectedPath={selectedPath}
-            onToggle={toggle}
-            onSelect={onSelect}
-          />
-        ))}
+      <div className="sidebar-scroll">
+        <div className="sidebar-header">Files</div>
+        <div className="file-tree">
+          {tree.length === 0 && <div className="empty">no .md files</div>}
+          {tree.map((node) => (
+            <TreeItem
+              key={nodeKey(node)}
+              node={node}
+              depth={0}
+              collapsed={collapsed}
+              selectedPath={selectedPath}
+              onToggle={toggle}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
       </div>
       <div className="sidebar-resize" onMouseDown={startDrag} aria-hidden />
     </aside>
