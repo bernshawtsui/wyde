@@ -55,11 +55,17 @@ jobs:
             Download `wyde_*_universal.dmg` below.
 
             1. Open the `.dmg` and drag **wyde** to `/Applications`.
-            2. **First launch:** right-click `wyde` → **Open** to dismiss the
-               unsigned-developer Gatekeeper warning. Subsequent launches
-               are normal double-clicks.
+            2. Double-click **wyde**. macOS blocks it ("Apple cannot
+               check it for malicious software") because the build is
+               unsigned — click **Done**.
+            3. Open **System Settings → Privacy & Security**, scroll
+               to the **Security** section, click **Open Anyway**.
+            4. Double-click **wyde** again, then **Open** in the final
+               dialog.
 
-            See the README for details.
+            Subsequent launches are normal double-clicks. Power users
+            can skip the Settings step with
+            `xattr -dr com.apple.quarantine /Applications/wyde.app`.
           releaseDraft: true
           prerelease: false
           args: --target universal-apple-darwin

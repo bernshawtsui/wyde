@@ -49,7 +49,9 @@ pnpm dist
 
 Produces `releases/wyde.zip` at the repo root — built for whatever
 arch the local machine is. Send the zip; recipient unzips, drops
-`wyde.app` into `/Applications`, right-click → Open the first time.
+`wyde.app` into `/Applications`, then follows the install steps in
+the README (System Settings → Privacy & Security → Open Anyway, the
+first time only).
 
 ## Re-running the release workflow
 
@@ -63,8 +65,9 @@ Two ways:
 ## Notes
 
 - Builds are **unsigned**. Recipients see the unsigned-developer
-  Gatekeeper warning the first time; the README documents the
-  right-click → Open workaround.
+  Gatekeeper warning the first time and have to go through System
+  Settings → Privacy & Security → Open Anyway (or run the `xattr`
+  workaround). The README documents both paths.
 - Push auth uses the credential helper installed by `gh auth login`
   (token in keyring). Nothing to configure per-release.
 - The `GITHUB_TOKEN` used inside the workflow is auto-provided by

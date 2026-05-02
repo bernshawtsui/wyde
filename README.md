@@ -78,16 +78,27 @@ Grab `wyde_*_universal.dmg` from the latest
 works on Apple Silicon and Intel Macs.
 
 1. Open the `.dmg` and drag **wyde** into `/Applications`.
-2. **First launch must be right-click → Open**, not double-click.
-   macOS will say "wyde cannot be opened because Apple cannot check
-   it for malicious software" and offer an **Open** button — click
-   it. This is because the build is unsigned (no Apple Developer
-   certificate). After this first launch the warning never reappears
-   and you can launch normally from the dock or Spotlight.
+2. Double-click **wyde** to launch. macOS will block it with
+   "wyde cannot be opened because Apple cannot check it for malicious
+   software" — this is expected (the build is unsigned, no Apple
+   Developer certificate). Click **Done**.
+3. Open **System Settings → Privacy & Security**, scroll down to
+   the **Security** section, and click **Open Anyway** next to the
+   message about wyde.
+4. Try double-clicking wyde again. macOS will show a final
+   confirmation dialog — click **Open**.
 
-> **Power-user alternative:** if right-click → Open is awkward, run
+After this first launch the warning never reappears; subsequent
+launches are normal double-clicks from the dock or Spotlight.
+
+> **Power-user alternative** (skip the Settings round-trip): run
 > `xattr -dr com.apple.quarantine /Applications/wyde.app` in Terminal
 > once after copying the app. Same effect, no Gatekeeper dialog.
+
+> **Why the extra steps?** On macOS 15 Sequoia and later, Apple
+> removed the old "right-click → Open" shortcut for unsigned apps —
+> the System Settings detour is the new official path for any app
+> not signed with a paid Apple Developer ID.
 
 ## Use
 
