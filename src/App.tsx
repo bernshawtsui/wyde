@@ -42,10 +42,7 @@ export default function App() {
   const activeTab: Tab | undefined = tabs[activeTabIndex];
   const activePath = activeTab?.path ?? null;
 
-  const openPaths = useMemo(
-    () => new Set(tabs.map((t) => t.path)),
-    [tabs]
-  );
+  const openPaths = useMemo(() => new Set(tabs.map((t) => t.path)), [tabs]);
 
   // Tab basenames for display in TabBar (resolved async via Tauri's path lib).
   const [basenames, setBasenames] = useState<string[]>([]);
@@ -61,14 +58,9 @@ export default function App() {
     };
   }, [tabs]);
 
-  const updateTab = useCallback(
-    (path: string, mutator: (t: Tab) => Tab) => {
-      setTabs((prev) =>
-        prev.map((t) => (t.path === path ? mutator(t) : t))
-      );
-    },
-    []
-  );
+  const updateTab = useCallback((path: string, mutator: (t: Tab) => Tab) => {
+    setTabs((prev) => prev.map((t) => (t.path === path ? mutator(t) : t)));
+  }, []);
 
   const refreshTab = useCallback(async (path: string) => {
     try {
@@ -138,33 +130,30 @@ export default function App() {
     [updateTab]
   );
 
-  const openTab = useCallback(
-    async (path: string) => {
-      // If already open, just activate.
-      const existing = tabsRef.current.findIndex((t) => t.path === path);
-      if (existing !== -1) {
-        setActiveTabIndex(existing);
-        return;
-      }
-      try {
-        const text = await readFile(path);
-        const newTab: Tab = {
-          path,
-          source: text,
-          widthsByTableOffset: {},
-        };
-        setTabs((prev) => {
-          const next = [...prev, newTab];
-          // Activate the newly added tab using its post-insertion index.
-          setActiveTabIndex(next.length - 1);
-          return next;
-        });
-      } catch (e) {
-        setError(`load: ${errorMessage(e)}`);
-      }
-    },
-    []
-  );
+  const openTab = useCallback(async (path: string) => {
+    // If already open, just activate.
+    const existing = tabsRef.current.findIndex((t) => t.path === path);
+    if (existing !== -1) {
+      setActiveTabIndex(existing);
+      return;
+    }
+    try {
+      const text = await readFile(path);
+      const newTab: Tab = {
+        path,
+        source: text,
+        widthsByTableOffset: {},
+      };
+      setTabs((prev) => {
+        const next = [...prev, newTab];
+        // Activate the newly added tab using its post-insertion index.
+        setActiveTabIndex(next.length - 1);
+        return next;
+      });
+    } catch (e) {
+      setError(`load: ${errorMessage(e)}`);
+    }
+  }, []);
 
   const closeTab = useCallback((index: number) => {
     setTabs((prev) => {
@@ -225,25 +214,22 @@ export default function App() {
     void openTab(first.path);
   }, [files, folderPath, openTab]);
 
-  const openFolder = useCallback(
-    async (absPath: string) => {
-      // New folder: drop existing tabs, clear edit/refresh tracking.
-      setTabs([]);
-      setActiveTabIndex(0);
-      editingCountRef.current.clear();
-      pendingRefreshRef.current.clear();
-      setFolderPath(absPath);
-      setError(null);
-      try {
-        const name = await basename(absPath);
-        setFolderName(name);
-        void getCurrentWebviewWindow().setTitle(`${name} — wyde`);
-      } catch {
-        setFolderName(absPath);
-      }
-    },
-    []
-  );
+  const openFolder = useCallback(async (absPath: string) => {
+    // New folder: drop existing tabs, clear edit/refresh tracking.
+    setTabs([]);
+    setActiveTabIndex(0);
+    editingCountRef.current.clear();
+    pendingRefreshRef.current.clear();
+    setFolderPath(absPath);
+    setError(null);
+    try {
+      const name = await basename(absPath);
+      setFolderName(name);
+      void getCurrentWebviewWindow().setTitle(`${name} — wyde`);
+    } catch {
+      setFolderName(absPath);
+    }
+  }, []);
 
   const closeFolder = useCallback(() => {
     setFolderPath(null);
@@ -337,9 +323,7 @@ export default function App() {
               {folderName || folderPath}
             </button>
             <span className="topbar-sep">/</span>
-            <span className="filename">
-              {activeBasename ?? "(no file)"}
-            </span>
+            <span className="filename">{activeBasename ?? "(no file)"}</span>
             {activePath && (
               <button
                 type="button"

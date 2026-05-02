@@ -27,11 +27,7 @@ interface TabContentProps {
   tab: Tab;
   isActive: boolean;
   onSourceCommit: (path: string, next: string) => void;
-  onWidthsChange: (
-    path: string,
-    tableOffset: number,
-    widths: number[]
-  ) => void;
+  onWidthsChange: (path: string, tableOffset: number, widths: number[]) => void;
   onEditStart: (path: string) => void;
   onEditEnd: (path: string) => void;
   onWatcherChange: (path: string) => void;
@@ -125,9 +121,7 @@ export function TabContent({
                 <div className="table-wrap">
                   <ResizableTable
                     widths={tab.widthsByTableOffset[offset]}
-                    onWidthsChange={(w) =>
-                      onWidthsChange(tab.path, offset, w)
-                    }
+                    onWidthsChange={(w) => onWidthsChange(tab.path, offset, w)}
                   >
                     {children}
                   </ResizableTable>
