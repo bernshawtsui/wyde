@@ -25,7 +25,11 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string>("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const { files, error: filesError } = useFolderFiles(folderPath);
+  const {
+    files,
+    error: filesError,
+    refresh: refreshFolder,
+  } = useFolderFiles(folderPath);
 
   // Per-path edit/refresh tracking (replaces the old single-document refs).
   const editingCountRef = useRef<Map<string, number>>(new Map());
@@ -273,10 +277,11 @@ export default function App() {
   }, []);
 
   const refreshActiveTab = useCallback(() => {
+    refreshFolder();
     if (!activePath) return;
     pendingRefreshRef.current.delete(activePath);
     void refreshTab(activePath);
-  }, [activePath, refreshTab]);
+  }, [activePath, refreshTab, refreshFolder]);
 
   const openExternalUrl = useCallback((url: string) => {
     void openUrl(url).catch((err) => {

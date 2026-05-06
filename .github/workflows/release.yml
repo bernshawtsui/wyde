@@ -72,6 +72,6 @@ jobs:
             Subsequent launches are normal double-clicks. Power users
             can skip the Settings step with
             `xattr -dr com.apple.quarantine /Applications/wyde.app`.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: --target universal-apple-darwin

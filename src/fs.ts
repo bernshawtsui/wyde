@@ -81,3 +81,21 @@ export async function watchPath(
     void unwatch();
   };
 }
+
+/**
+ * Watch a directory recursively. Larger debounce than `watchPath` because
+ * folder-level events come in storms (e.g. `git checkout` touches many files
+ * at once) and we want one rescan, not many.
+ */
+export async function watchFolder(
+  absDir: string,
+  onEvent: () => void
+): Promise<() => void> {
+  const unwatch = await watch(absDir, () => onEvent(), {
+    recursive: true,
+    delayMs: 300,
+  });
+  return () => {
+    void unwatch();
+  };
+}
