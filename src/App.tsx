@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { basename } from "@tauri-apps/api/path";
@@ -7,23 +8,60 @@ import {
   getCurrentWebviewWindow,
 } from "@tauri-apps/api/webviewWindow";
 import { Sidebar } from "./Sidebar";
-import { TabBar } from "./TabBar";
-import { TabContent, type Tab } from "./TabContent";
+import { Pane } from "./Pane";
+import { type Tab } from "./TabContent";
 import { type MarkdownFile, readFile, writeFile } from "./fs";
 import { useDragDropFolder } from "./hooks/useDragDropFolder";
 import { useFolderFiles } from "./hooks/useFolderFiles";
 import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
 import { useZoom } from "./hooks/useZoom";
 import { errorMessage } from "./lib/error";
+import {
+  DEFAULT_SPLIT_RATIO,
+  type DropZone,
+  type Pane as PaneState,
+  activatePath,
+  addTabToPane,
+  allOpenPaths,
+  closeTabInPane,
+  cycleActiveTab,
+  findPaneByPath,
+  makePane,
+  movePaneTab,
+} from "./lib/panes";
+
+const SPLIT_MIN = 0.2;
+const SPLIT_MAX = 0.8;
+const DRAG_THRESHOLD_PX = 5;
 
 export default function App() {
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [folderName, setFolderName] = useState<string>("");
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [{ panes, focusedPaneId }, setPaneState] = useState<{
+    panes: PaneState[];
+    focusedPaneId: string;
+  }>(() => {
+    const first = makePane();
+    return { panes: [first], focusedPaneId: first.id };
+  });
+  const focusPane = useCallback((id: string) => {
+    setPaneState((prev) =>
+      prev.focusedPaneId === id ? prev : { ...prev, focusedPaneId: id }
+    );
+  }, []);
+  const [splitRatio, setSplitRatio] = useState<number>(DEFAULT_SPLIT_RATIO);
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string>("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Tab-drag state. Tauri's `dragDropEnabled: true` (needed for folder-drop
+  // onto the window) disables HTML5 drag in the webview, so we run our own
+  // mouse-based drag instead. `dragSourcePaneId` is non-null once a drag
+  // crosses the movement threshold; `hoverZone` is the zone under the cursor.
+  const [dragSourcePaneId, setDragSourcePaneId] = useState<string | null>(null);
+  const [hoverZone, setHoverZone] = useState<{
+    paneId: string;
+    zone: DropZone;
+  } | null>(null);
 
   const {
     files,
@@ -31,48 +69,106 @@ export default function App() {
     refresh: refreshFolder,
   } = useFolderFiles(folderPath);
 
-  // Per-path edit/refresh tracking (replaces the old single-document refs).
+  // Per-path edit/refresh tracking. Paths are unique across all panes (we
+  // dedupe at openTab time), so a path-keyed map remains correct.
   const editingCountRef = useRef<Map<string, number>>(new Map());
   const pendingRefreshRef = useRef<Set<string>>(new Set());
-  const tabsRef = useRef<Tab[]>([]);
+  const panesRef = useRef<PaneState[]>(panes);
+  const focusedPaneIdRef = useRef<string>(focusedPaneId);
+  const splitRatioRef = useRef<number>(splitRatio);
+  const panesRowRef = useRef<HTMLDivElement | null>(null);
+  const splitDragRef = useRef<{ rect: DOMRect } | null>(null);
+  // Mouse-down origin recorded by TabBar; only promoted to a real drag once
+  // movement exceeds DRAG_THRESHOLD_PX.
+  const dragOriginRef = useRef<{
+    sourcePaneId: string;
+    path: string;
+    startX: number;
+    startY: number;
+  } | null>(null);
+  const dragSourcePaneIdRef = useRef<string | null>(null);
+  // Set when a drag actually started (past threshold). Read by onActivateTab
+  // to suppress the click that follows the mouseup of the drag.
+  const dragSuppressClickRef = useRef<boolean>(false);
+
   useEffect(() => {
-    tabsRef.current = tabs;
-  }, [tabs]);
+    panesRef.current = panes;
+  }, [panes]);
+  useEffect(() => {
+    focusedPaneIdRef.current = focusedPaneId;
+  }, [focusedPaneId]);
+  useEffect(() => {
+    splitRatioRef.current = splitRatio;
+  }, [splitRatio]);
+  useEffect(() => {
+    dragSourcePaneIdRef.current = dragSourcePaneId;
+  }, [dragSourcePaneId]);
 
   useEffect(() => {
     if (filesError) setError(filesError);
   }, [filesError]);
 
-  const activeTab: Tab | undefined = tabs[activeTabIndex];
+  const focusedPane: PaneState =
+    panes.find((p) => p.id === focusedPaneId) ?? panes[0];
+  const activeTab: Tab | undefined = focusedPane.tabs[focusedPane.activeIndex];
   const activePath = activeTab?.path ?? null;
 
-  const openPaths = useMemo(() => new Set(tabs.map((t) => t.path)), [tabs]);
+  const openPaths = useMemo(
+    () => new Set(allOpenPaths(panes)),
+    [panes]
+  );
 
-  // Tab basenames for display in TabBar (resolved async via Tauri's path lib).
-  const [basenames, setBasenames] = useState<string[]>([]);
+  // Tab basenames for display, keyed by path. Resolved async via Tauri's
+  // path lib for any newly-seen path.
+  const [basenamesByPath, setBasenamesByPath] = useState<Map<string, string>>(
+    new Map()
+  );
   useEffect(() => {
     let cancelled = false;
-    Promise.all(tabs.map((t) => basename(t.path).catch(() => t.path))).then(
+    const paths = Array.from(new Set(allOpenPaths(panes)));
+    // Compute basenames only for paths we don't already know.
+    const missing = paths.filter((p) => !basenamesByPath.has(p));
+    if (missing.length === 0) return;
+    Promise.all(missing.map((p) => basename(p).catch(() => p))).then(
       (names) => {
-        if (!cancelled) setBasenames(names);
+        if (cancelled) return;
+        setBasenamesByPath((prev) => {
+          const next = new Map(prev);
+          missing.forEach((p, i) => next.set(p, names[i]));
+          return next;
+        });
       }
     );
     return () => {
       cancelled = true;
     };
-  }, [tabs]);
+  }, [panes, basenamesByPath]);
 
-  const updateTab = useCallback((path: string, mutator: (t: Tab) => Tab) => {
-    setTabs((prev) => prev.map((t) => (t.path === path ? mutator(t) : t)));
-  }, []);
+  const updateTab = useCallback(
+    (path: string, mutator: (t: Tab) => Tab) => {
+      setPaneState((prev) => ({
+        ...prev,
+        panes: prev.panes.map((p) => ({
+          ...p,
+          tabs: p.tabs.map((t) => (t.path === path ? mutator(t) : t)),
+        })),
+      }));
+    },
+    []
+  );
 
   const refreshTab = useCallback(async (path: string) => {
     try {
       const text = await readFile(path);
-      // Look up the latest tab state at apply time (in case tabs changed).
-      setTabs((prev) =>
-        prev.map((t) => (t.path === path ? { ...t, source: text } : t))
-      );
+      setPaneState((prev) => ({
+        ...prev,
+        panes: prev.panes.map((p) => ({
+          ...p,
+          tabs: p.tabs.map((t) =>
+            t.path === path ? { ...t, source: text } : t
+          ),
+        })),
+      }));
       setError(null);
     } catch (e) {
       setError(`load: ${errorMessage(e)}`);
@@ -135,10 +231,15 @@ export default function App() {
   );
 
   const openTab = useCallback(async (path: string) => {
-    // If already open, just activate.
-    const existing = tabsRef.current.findIndex((t) => t.path === path);
-    if (existing !== -1) {
-      setActiveTabIndex(existing);
+    // If already open in any pane, just activate it there and shift focus.
+    const existing = findPaneByPath(panesRef.current, path);
+    if (existing) {
+      const { panes: next, focusedPaneId: nextFocused } = activatePath(
+        panesRef.current,
+        path,
+        focusedPaneIdRef.current
+      );
+      setPaneState({ panes: next, focusedPaneId: nextFocused });
       return;
     }
     try {
@@ -148,52 +249,176 @@ export default function App() {
         source: text,
         widthsByTableOffset: {},
       };
-      setTabs((prev) => {
-        const next = [...prev, newTab];
-        // Activate the newly added tab using its post-insertion index.
-        setActiveTabIndex(next.length - 1);
-        return next;
-      });
+      const target = focusedPaneIdRef.current;
+      const { panes: next, focusedPaneId: nextFocused } = addTabToPane(
+        panesRef.current,
+        target,
+        newTab
+      );
+      setPaneState({ panes: next, focusedPaneId: nextFocused });
     } catch (e) {
       setError(`load: ${errorMessage(e)}`);
     }
   }, []);
 
-  const closeTab = useCallback((index: number) => {
-    setTabs((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      // Recompute active index relative to closed position.
-      setActiveTabIndex((cur) => {
-        if (next.length === 0) return 0;
-        if (index < cur) return cur - 1;
-        if (index === cur) return Math.max(0, Math.min(cur, next.length - 1));
-        return cur;
-      });
-      // Drop per-path tracking for the closed file.
-      const closed = prev[index];
-      if (closed) {
+  const onActivateTab = useCallback((paneId: string, index: number) => {
+    // The click event fires after a drag's mouseup. If a drag actually
+    // happened, skip activation and clear the flag for the next interaction.
+    if (dragSuppressClickRef.current) {
+      dragSuppressClickRef.current = false;
+      return;
+    }
+    setPaneState((prev) => ({
+      panes: prev.panes.map((p) =>
+        p.id === paneId ? { ...p, activeIndex: index } : p
+      ),
+      focusedPaneId: paneId,
+    }));
+  }, []);
+
+  const onCloseTab = useCallback((paneId: string, index: number) => {
+    const closed = panesRef.current
+      .find((p) => p.id === paneId)
+      ?.tabs[index];
+    const r = closeTabInPane(
+      panesRef.current,
+      paneId,
+      index,
+      splitRatioRef.current,
+      focusedPaneIdRef.current
+    );
+    setPaneState({ panes: r.panes, focusedPaneId: r.focusedPaneId });
+    setSplitRatio(r.splitRatio);
+    // If the path is no longer open anywhere, drop its tracking.
+    if (closed) {
+      const stillOpen = r.panes.some((p) =>
+        p.tabs.some((t) => t.path === closed.path)
+      );
+      if (!stillOpen) {
         editingCountRef.current.delete(closed.path);
         pendingRefreshRef.current.delete(closed.path);
       }
-      return next;
-    });
+    }
   }, []);
 
   const closeActiveTab = useCallback(() => {
-    if (tabsRef.current.length === 0) return;
-    closeTab(activeTabIndex);
-  }, [activeTabIndex, closeTab]);
+    const pane = panesRef.current.find((p) => p.id === focusedPaneIdRef.current);
+    if (!pane || pane.tabs.length === 0) return;
+    onCloseTab(pane.id, pane.activeIndex);
+  }, [onCloseTab]);
 
   const nextTab = useCallback(() => {
-    if (tabsRef.current.length < 2) return;
-    setActiveTabIndex((i) => (i + 1) % tabsRef.current.length);
+    setPaneState((prev) => ({
+      ...prev,
+      panes: cycleActiveTab(prev.panes, focusedPaneIdRef.current, 1),
+    }));
   }, []);
 
   const prevTab = useCallback(() => {
-    if (tabsRef.current.length < 2) return;
-    setActiveTabIndex(
-      (i) => (i - 1 + tabsRef.current.length) % tabsRef.current.length
-    );
+    setPaneState((prev) => ({
+      ...prev,
+      panes: cycleActiveTab(prev.panes, focusedPaneIdRef.current, -1),
+    }));
+  }, []);
+
+  const onTabMouseDown = useCallback(
+    (paneId: string, path: string, e: ReactMouseEvent) => {
+      // Reset the "ignore next click" flag from any prior interaction.
+      dragSuppressClickRef.current = false;
+      dragOriginRef.current = {
+        sourcePaneId: paneId,
+        path,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+      // Suppress text selection from the first pixel of a potential drag —
+      // BEFORE we know whether it'll cross the threshold. Avoids the brief
+      // window where the browser selects text in the markdown content as the
+      // cursor passes through it. We do NOT preventDefault() here because
+      // that would also block focus changes (e.g., blurring an editing cell).
+      document.body.classList.add("tab-mousedown");
+    },
+    []
+  );
+
+  // Window-level mouse tracking for the in-progress tab drag.
+  useEffect(() => {
+    function hitTestZone(
+      x: number,
+      y: number
+    ): { paneId: string; zone: DropZone } | null {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      const zoneEl = el.closest<HTMLElement>("[data-drop-zone]");
+      if (!zoneEl) return null;
+      const paneId = zoneEl.dataset.paneId;
+      const zone = zoneEl.dataset.dropZone as DropZone | undefined;
+      if (!paneId || !zone) return null;
+      return { paneId, zone };
+    }
+
+    function onMove(e: MouseEvent) {
+      const origin = dragOriginRef.current;
+      if (!origin) return;
+      const dx = e.clientX - origin.startX;
+      const dy = e.clientY - origin.startY;
+      const isDragging = Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX;
+      if (!isDragging) return;
+      // Promote to a real drag the first time we cross the threshold.
+      if (dragSourcePaneIdRef.current !== origin.sourcePaneId) {
+        setDragSourcePaneId(origin.sourcePaneId);
+        dragSuppressClickRef.current = true;
+        document.body.classList.add("tab-dragging");
+        // Clear any selection that snuck in before tab-mousedown took effect
+        // (some content elements may override user-select).
+        window.getSelection()?.removeAllRanges();
+      }
+      const hit = hitTestZone(e.clientX, e.clientY);
+      // Only consider hits on a different pane unless this pane is allowed
+      // to split itself (single-pane mode with multiple tabs).
+      setHoverZone((prev) => {
+        if (!hit) return prev === null ? prev : null;
+        if (prev?.paneId === hit.paneId && prev.zone === hit.zone) return prev;
+        return hit;
+      });
+    }
+
+    function onUp(e: MouseEvent) {
+      const origin = dragOriginRef.current;
+      dragOriginRef.current = null;
+      if (!origin) return;
+      const wasDragging = dragSourcePaneIdRef.current === origin.sourcePaneId;
+      document.body.classList.remove("tab-mousedown", "tab-dragging");
+      if (wasDragging) {
+        const hit = hitTestZone(e.clientX, e.clientY);
+        if (hit) {
+          const r = movePaneTab(
+            panesRef.current,
+            {
+              fromPaneId: origin.sourcePaneId,
+              toPaneId: hit.paneId,
+              path: origin.path,
+              zone: hit.zone,
+            },
+            splitRatioRef.current
+          );
+          setPaneState({
+            panes: r.panes,
+            focusedPaneId: r.focusedPaneId,
+          });
+          setSplitRatio(r.splitRatio);
+        }
+      }
+      setDragSourcePaneId(null);
+      setHoverZone(null);
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
   }, []);
 
   const onSelectFile = useCallback(
@@ -207,12 +432,12 @@ export default function App() {
   useEffect(() => {
     if (!folderPath) return;
     if (files.length === 0) {
-      setTabs([]);
-      setActiveTabIndex(0);
+      const fresh = makePane();
+      setPaneState({ panes: [fresh], focusedPaneId: fresh.id });
       return;
     }
-    // Only auto-pick when there are no tabs yet (fresh folder open).
-    if (tabsRef.current.length > 0) return;
+    // Only auto-pick when nothing is open yet (fresh folder open).
+    if (allOpenPaths(panesRef.current).length > 0) return;
     const test = files.find((f) => f.name === "test.md");
     const first = test ?? files[0];
     void openTab(first.path);
@@ -220,8 +445,10 @@ export default function App() {
 
   const openFolder = useCallback(async (absPath: string) => {
     // New folder: drop existing tabs, clear edit/refresh tracking.
-    setTabs([]);
-    setActiveTabIndex(0);
+    const fresh = makePane();
+    setPaneState({ panes: [fresh], focusedPaneId: fresh.id });
+    setSplitRatio(DEFAULT_SPLIT_RATIO);
+    setBasenamesByPath(new Map());
     editingCountRef.current.clear();
     pendingRefreshRef.current.clear();
     setFolderPath(absPath);
@@ -236,10 +463,12 @@ export default function App() {
   }, []);
 
   const closeFolder = useCallback(() => {
+    const fresh = makePane();
     setFolderPath(null);
     setFolderName("");
-    setTabs([]);
-    setActiveTabIndex(0);
+    setPaneState({ panes: [fresh], focusedPaneId: fresh.id });
+    setSplitRatio(DEFAULT_SPLIT_RATIO);
+    setBasenamesByPath(new Map());
     editingCountRef.current.clear();
     pendingRefreshRef.current.clear();
     void getCurrentWebviewWindow().setTitle("wyde");
@@ -289,6 +518,38 @@ export default function App() {
     });
   }, []);
 
+  // Split divider drag (mouse-based, mirrors Sidebar.tsx pattern).
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      const s = splitDragRef.current;
+      if (!s) return;
+      const fraction = (e.clientX - s.rect.left) / s.rect.width;
+      const next = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, fraction));
+      setSplitRatio(next);
+    }
+    function onUp() {
+      if (splitDragRef.current) {
+        splitDragRef.current = null;
+        document.body.classList.remove("resizing");
+      }
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  function startSplitDrag(e: ReactMouseEvent) {
+    if (!panesRowRef.current) return;
+    e.preventDefault();
+    splitDragRef.current = {
+      rect: panesRowRef.current.getBoundingClientRect(),
+    };
+    document.body.classList.add("resizing");
+  }
+
   useDragDropFolder(onFolderDropped);
   useGlobalShortcuts({
     onOpenFolder: pickFolder,
@@ -301,7 +562,14 @@ export default function App() {
   });
   const zoom = useZoom();
 
-  const activeBasename = activeTab ? basenames[activeTabIndex] : undefined;
+  const activeBasename = activePath ? basenamesByPath.get(activePath) : undefined;
+  const isDragInFlight = dragSourcePaneId !== null;
+  const sourcePane = dragSourcePaneId
+    ? panes.find((p) => p.id === dragSourcePaneId)
+    : null;
+  const sourceHasMultipleTabs = (sourcePane?.tabs.length ?? 0) > 1;
+
+  const totalOpenTabs = panes.reduce((n, p) => n + p.tabs.length, 0);
 
   return (
     <div className="app" style={{ zoom }}>
@@ -368,15 +636,6 @@ export default function App() {
           />
         )}
         <main className="main">
-          {folderPath && tabs.length > 0 && (
-            <TabBar
-              tabs={tabs}
-              activeIndex={activeTabIndex}
-              basenames={basenames}
-              onActivate={setActiveTabIndex}
-              onClose={closeTab}
-            />
-          )}
           {!folderPath ? (
             <div className="content">
               <div className="content-inner">
@@ -394,7 +653,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-          ) : tabs.length === 0 ? (
+          ) : totalOpenTabs === 0 ? (
             <div className="content">
               <div className="content-inner">
                 <div className="empty-state">
@@ -403,19 +662,55 @@ export default function App() {
               </div>
             </div>
           ) : (
-            tabs.map((tab, i) => (
-              <TabContent
-                key={tab.path}
-                tab={tab}
-                isActive={i === activeTabIndex}
-                onSourceCommit={onSourceCommit}
-                onWidthsChange={onWidthsChange}
-                onEditStart={onEditStart}
-                onEditEnd={onEditEnd}
-                onWatcherChange={onWatcherChange}
-                onOpenUrl={openExternalUrl}
-              />
-            ))
+            <div className="panes-row" ref={panesRowRef}>
+              {panes.map((pane, i) => {
+                const flex =
+                  panes.length === 2
+                    ? i === 0
+                      ? splitRatio
+                      : 1 - splitRatio
+                    : 1;
+                return (
+                  <Fragment key={pane.id}>
+                    <div
+                      className="pane-slot"
+                      style={{ flex: `${flex} 1 0` }}
+                    >
+                      <Pane
+                        pane={pane}
+                        basenamesByPath={basenamesByPath}
+                        isFocused={pane.id === focusedPaneId}
+                        isDragInFlight={isDragInFlight}
+                        isDragSource={dragSourcePaneId === pane.id}
+                        canSplitSelf={
+                          panes.length === 1 && sourceHasMultipleTabs
+                        }
+                        hoverZone={
+                          hoverZone?.paneId === pane.id ? hoverZone.zone : null
+                        }
+                        onActivateTab={onActivateTab}
+                        onCloseTab={onCloseTab}
+                        onTabMouseDown={onTabMouseDown}
+                        onFocus={focusPane}
+                        onSourceCommit={onSourceCommit}
+                        onWidthsChange={onWidthsChange}
+                        onEditStart={onEditStart}
+                        onEditEnd={onEditEnd}
+                        onWatcherChange={onWatcherChange}
+                        onOpenUrl={openExternalUrl}
+                      />
+                    </div>
+                    {panes.length === 2 && i === 0 && (
+                      <div
+                        className="split-divider"
+                        onMouseDown={startSplitDrag}
+                        aria-hidden
+                      />
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
           )}
         </main>
       </div>
