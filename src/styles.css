@@ -236,6 +236,117 @@ body,
   color: var(--fg);
 }
 
+.panes-row {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-slot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane.focused .tab-bar {
+  box-shadow: inset 0 2px 0 var(--accent), 0 1px 0 var(--border);
+}
+
+.pane-tabs-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pane-body {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.split-divider {
+  width: 6px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 100ms;
+}
+
+.split-divider:hover,
+body.resizing .split-divider {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+.drop-zone {
+  position: absolute;
+  background: rgba(9, 105, 218, 0.08);
+  border: 2px dashed var(--accent);
+  opacity: 0.5;
+  transition: opacity 80ms, background 80ms;
+  z-index: 20;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.drop-zone.active {
+  opacity: 1;
+  background: rgba(9, 105, 218, 0.22);
+}
+
+/* Suppress text selection from the moment a tab is mouse-pressed, before
+   the drag has crossed its movement threshold. Cursor stays normal so a
+   plain click doesn't flash the grabbing icon. */
+body.tab-mousedown,
+body.tab-mousedown * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+body.tab-dragging,
+body.tab-dragging * {
+  cursor: grabbing !important;
+}
+
+/* Full-pane overlay: shown in two-pane mode on the OTHER pane during a drag.
+   Covers the entire pane (tab strip + body) because the drop behaves the
+   same way no matter where on the pane you release. */
+.drop-zone-pane {
+  inset: 0;
+}
+
+/* Side overlays: only shown on the source pane in single-pane mode (split
+   creation), where left vs right meaningfully picks which side the new pane
+   lands on. */
+.drop-zone-left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+}
+
+.drop-zone-right {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 50%;
+}
+
 .content {
   flex: 1;
   overflow-y: auto;

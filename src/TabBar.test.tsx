@@ -8,13 +8,20 @@ function makeTab(path: string): Tab {
   return { path, source: "", widthsByTableOffset: {} };
 }
 
+const PANE_ID = "pane-1";
+
+function makeNames(...entries: [string, string][]): Map<string, string> {
+  return new Map(entries);
+}
+
 describe("TabBar", () => {
   it("renders nothing when there are no tabs", () => {
     const { container } = render(
       <TabBar
         tabs={[]}
         activeIndex={0}
-        basenames={[]}
+        basenames={new Map()}
+        paneId={PANE_ID}
         onActivate={() => {}}
         onClose={() => {}}
       />
@@ -27,7 +34,11 @@ describe("TabBar", () => {
       <TabBar
         tabs={[makeTab("/a/foo.md"), makeTab("/b/bar.md")]}
         activeIndex={0}
-        basenames={["foo.md", "bar.md"]}
+        basenames={makeNames(
+          ["/a/foo.md", "foo.md"],
+          ["/b/bar.md", "bar.md"]
+        )}
+        paneId={PANE_ID}
         onActivate={() => {}}
         onClose={() => {}}
       />
@@ -41,7 +52,8 @@ describe("TabBar", () => {
       <TabBar
         tabs={[makeTab("/a"), makeTab("/b")]}
         activeIndex={1}
-        basenames={["a", "b"]}
+        basenames={makeNames(["/a", "a"], ["/b", "b"])}
+        paneId={PANE_ID}
         onActivate={() => {}}
         onClose={() => {}}
       />
@@ -58,7 +70,8 @@ describe("TabBar", () => {
       <TabBar
         tabs={[makeTab("/a"), makeTab("/b")]}
         activeIndex={0}
-        basenames={["a", "b"]}
+        basenames={makeNames(["/a", "a"], ["/b", "b"])}
+        paneId={PANE_ID}
         onActivate={onActivate}
         onClose={() => {}}
       />
@@ -75,7 +88,8 @@ describe("TabBar", () => {
       <TabBar
         tabs={[makeTab("/a"), makeTab("/b")]}
         activeIndex={0}
-        basenames={["a", "b"]}
+        basenames={makeNames(["/a", "a"], ["/b", "b"])}
+        paneId={PANE_ID}
         onActivate={onActivate}
         onClose={onClose}
       />
@@ -92,7 +106,8 @@ describe("TabBar", () => {
       <TabBar
         tabs={[makeTab("/a"), makeTab("/b")]}
         activeIndex={0}
-        basenames={["a", "b"]}
+        basenames={makeNames(["/a", "a"], ["/b", "b"])}
+        paneId={PANE_ID}
         onActivate={() => {}}
         onClose={onClose}
       />
@@ -107,11 +122,52 @@ describe("TabBar", () => {
       <TabBar
         tabs={[makeTab("/a/very/long/path.md")]}
         activeIndex={0}
-        basenames={[]}
+        basenames={new Map()}
+        paneId={PANE_ID}
         onActivate={() => {}}
         onClose={() => {}}
       />
     );
     expect(screen.getByText("/a/very/long/path.md")).toBeInTheDocument();
+  });
+
+  it("left mouse-down on a tab calls onTabMouseDown(paneId, path, event)", () => {
+    const onTabMouseDown = vi.fn();
+    const { container } = render(
+      <TabBar
+        tabs={[makeTab("/a"), makeTab("/b/foo.md")]}
+        activeIndex={0}
+        basenames={makeNames(["/a", "a"], ["/b/foo.md", "foo.md"])}
+        paneId={PANE_ID}
+        onActivate={() => {}}
+        onClose={() => {}}
+        onTabMouseDown={onTabMouseDown}
+      />
+    );
+    const tab = container.querySelectorAll(".tab")[1];
+    fireEvent.mouseDown(tab, { button: 0, clientX: 100, clientY: 50 });
+    expect(onTabMouseDown).toHaveBeenCalledTimes(1);
+    expect(onTabMouseDown.mock.calls[0][0]).toBe(PANE_ID);
+    expect(onTabMouseDown.mock.calls[0][1]).toBe("/b/foo.md");
+  });
+
+  it("middle-click does NOT call onTabMouseDown", () => {
+    const onTabMouseDown = vi.fn();
+    const onClose = vi.fn();
+    const { container } = render(
+      <TabBar
+        tabs={[makeTab("/a")]}
+        activeIndex={0}
+        basenames={makeNames(["/a", "a"])}
+        paneId={PANE_ID}
+        onActivate={() => {}}
+        onClose={onClose}
+        onTabMouseDown={onTabMouseDown}
+      />
+    );
+    const tab = container.querySelector(".tab")!;
+    fireEvent.mouseDown(tab, { button: 1 });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onTabMouseDown).not.toHaveBeenCalled();
   });
 });
