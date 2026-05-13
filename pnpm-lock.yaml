@@ -26,6 +26,9 @@ importers:
       mermaid:
         specifier: ^11.14.0
         version: 11.14.0
+      panzoom:
+        specifier: ^9.4.4
+        version: 9.4.4
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -1028,6 +1031,9 @@ packages:
   ajv@6.15.0:
     resolution: {integrity: sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw==}
 
+  amator@1.1.0:
+    resolution: {integrity: sha512-V5+aH8pe+Z3u/UG3L3pG3BaFQGXAyXHVQDroRwjPHdh08bcUEchAVsU1MCuJSCaU5o60wTK6KaE6te5memzgYw==}
+
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
     engines: {node: '>=8'}
@@ -1064,6 +1070,9 @@ packages:
     resolution: {integrity: sha512-I2NkZOOrj2XuguvWCK6OVh9GavsNjZjK908Rq3mIBK25+GD8vPX5w2WdxVqnQ7xx3SrZJiCiZFu+/Oz50oSYSA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
+
+  bezier-easing@2.1.0:
+    resolution: {integrity: sha512-gbIqZ/eslnUFC1tjEvtz0sgx+xTK20wDnYMIA27VA04R7w6xxXQPZDbibjA9DTWZRA2CXtwHykkVzlCaAJAZig==}
 
   brace-expansion@5.0.5:
     resolution: {integrity: sha512-VZznLgtwhn+Mact9tfiwx64fA9erHH/MCXEUfB/0bX/6Fz6ny5EGTXYltMocqg4xFAQZtnO3DHWWXi8RiuN7cQ==}
@@ -1826,6 +1835,9 @@ packages:
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
+  ngraph.events@1.4.0:
+    resolution: {integrity: sha512-NeDGI4DSyjBNBRtA86222JoYietsmCXbs8CEB0dZ51Xeh4lhVl1y3wpWLumczvnha8sFQIW4E0vvVWwgmX2mGw==}
+
   node-releases@2.0.38:
     resolution: {integrity: sha512-3qT/88Y3FbH/Kx4szpQQ4HzUbVrHPKTLVpVocKiLfoYvw9XSGOX2FmD2d6DrXbVYyAQTF2HeF6My8jmzx7/CRw==}
 
@@ -1846,6 +1858,9 @@ packages:
 
   package-manager-detector@1.6.0:
     resolution: {integrity: sha512-61A5ThoTiDG/C8s8UMZwSorAGwMJ0ERVGj2OjoW5pAalsNOg15+iQiPzrLJ4jhZ1HJzmC2PIHT2oEiH3R5fzNA==}
+
+  panzoom@9.4.4:
+    resolution: {integrity: sha512-r1KfkNZvsBw59IPq7Yy+GWZnZE1YCG/t7aG6caSkij/TBqdxTzmxNTm/lHf3h6qlVMFisIGIO+lgS2Ym23PIoA==}
 
   parse-entities@4.0.2:
     resolution: {integrity: sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw==}
@@ -2212,6 +2227,9 @@ packages:
   whatwg-mimetype@3.0.0:
     resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
     engines: {node: '>=12'}
+
+  wheel@1.0.0:
+    resolution: {integrity: sha512-XiCMHibOiqalCQ+BaNSwRoZ9FDTAvOsXxGHXChBugewDj7HC8VBIER71dEOiRH1fSdLbRCQzngKTSiZ06ZQzeA==}
 
   which@2.0.2:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
@@ -3114,6 +3132,10 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
+  amator@1.1.0:
+    dependencies:
+      bezier-easing: 2.1.0
+
   ansi-regex@5.0.1: {}
 
   ansi-styles@5.2.0: {}
@@ -3139,6 +3161,8 @@ snapshots:
   balanced-match@4.0.4: {}
 
   baseline-browser-mapping@2.10.24: {}
+
+  bezier-easing@2.1.0: {}
 
   brace-expansion@5.0.5:
     dependencies:
@@ -4179,6 +4203,8 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
+  ngraph.events@1.4.0: {}
+
   node-releases@2.0.38: {}
 
   obug@2.1.1: {}
@@ -4201,6 +4227,12 @@ snapshots:
       p-limit: 3.1.0
 
   package-manager-detector@1.6.0: {}
+
+  panzoom@9.4.4:
+    dependencies:
+      amator: 1.1.0
+      ngraph.events: 1.4.0
+      wheel: 1.0.0
 
   parse-entities@4.0.2:
     dependencies:
@@ -4584,6 +4616,8 @@ snapshots:
   vscode-uri@3.1.0: {}
 
   whatwg-mimetype@3.0.0: {}
+
+  wheel@1.0.0: {}
 
   which@2.0.2:
     dependencies:

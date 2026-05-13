@@ -664,18 +664,66 @@ body.resizing * {
 }
 
 .mermaid-block {
-  display: flex;
-  justify-content: center;
+  position: relative;
   margin: 1.2em 0;
-  padding: 12px 8px;
-  overflow-x: auto;
+  padding: 0;
+  overflow: hidden;
   background: var(--code-bg);
   border-radius: 6px;
+  max-height: min(70vh, 600px);
+  cursor: grab;
+}
+
+.mermaid-block:active {
+  cursor: grabbing;
+}
+
+.mermaid-svg-host {
+  display: flex;
+  justify-content: center;
+  padding: 12px 8px;
 }
 
 .mermaid-block svg {
+  display: block;
   max-width: 100%;
   height: auto;
+}
+
+.mermaid-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.mermaid-block:hover .mermaid-toolbar,
+.mermaid-block:focus-within .mermaid-toolbar {
+  opacity: 1;
+}
+
+.mermaid-toolbar button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.15));
+  background: var(--surface, #fff);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text, #333);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mermaid-toolbar button:hover {
+  background: var(--code-bg);
 }
 
 .mermaid-loading {

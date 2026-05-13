@@ -15,10 +15,40 @@ vi.mock("mermaid", () => ({
   default: { render: renderMock, initialize: initializeMock },
 }));
 
+// Stub panzoom — happy-dom can't run the real lib's SVG transform math, and
+// we don't need to verify panzoom's internals here, only that it's invoked.
+// vi.mock is hoisted above const declarations; panzoom is statically imported
+// in MermaidBlock.tsx, so the mock factory runs before the test file body.
+// vi.hoisted() lifts the mock-fn creation up to match.
+const { panzoomMock, pzDispose, pzMoveTo, pzZoomAbs, pzSmoothZoom } = vi.hoisted(
+  () => {
+    const pzDispose = vi.fn();
+    const pzMoveTo = vi.fn();
+    const pzZoomAbs = vi.fn();
+    const pzSmoothZoom = vi.fn();
+    const panzoomMock = vi.fn(() => ({
+      dispose: pzDispose,
+      moveTo: pzMoveTo,
+      zoomAbs: pzZoomAbs,
+      smoothZoom: pzSmoothZoom,
+    }));
+    return { panzoomMock, pzDispose, pzMoveTo, pzZoomAbs, pzSmoothZoom };
+  }
+);
+
+vi.mock("panzoom", () => ({
+  default: panzoomMock,
+}));
+
 describe("MermaidBlock", () => {
   beforeEach(() => {
     renderMock.mockClear();
     initializeMock.mockClear();
+    panzoomMock.mockClear();
+    pzDispose.mockClear();
+    pzMoveTo.mockClear();
+    pzZoomAbs.mockClear();
+    pzSmoothZoom.mockClear();
   });
 
   afterEach(() => {
@@ -90,5 +120,32 @@ describe("MermaidBlock", () => {
     await waitFor(() =>
       expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     );
+  });
+
+  it("attaches panzoom to the rendered SVG and disposes on unmount", async () => {
+    const { unmount, container } = render(
+      <MermaidBlock source={"graph TD\nA-->B"} />
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".mermaid-block svg")).not.toBeNull();
+    });
+    expect(panzoomMock).toHaveBeenCalledTimes(1);
+    expect(pzDispose).not.toHaveBeenCalled();
+    unmount();
+    expect(pzDispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("toolbar buttons call panzoom zoom and reset", async () => {
+    render(<MermaidBlock source={"graph TD\nA-->B"} />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Zoom in")).toBeInTheDocument()
+    );
+    screen.getByLabelText("Zoom in").click();
+    expect(pzSmoothZoom).toHaveBeenCalledTimes(1);
+    screen.getByLabelText("Zoom out").click();
+    expect(pzSmoothZoom).toHaveBeenCalledTimes(2);
+    screen.getByLabelText("Reset zoom and pan").click();
+    expect(pzMoveTo).toHaveBeenCalledTimes(1);
+    expect(pzZoomAbs).toHaveBeenCalledTimes(1);
   });
 });
