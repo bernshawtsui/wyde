@@ -62,6 +62,12 @@ export default function App() {
     paneId: string;
     zone: DropZone;
   } | null>(null);
+  // Per-pane find-in-page state. Visible bars are independent across panes;
+  // `focusBump` is incremented when ⌘F is pressed while already visible so
+  // the SearchBar can re-focus its input.
+  const [paneSearch, setPaneSearch] = useState<
+    Record<string, { visible: boolean; query: string; focusBump: number }>
+  >({});
 
   const {
     files,
@@ -289,6 +295,17 @@ export default function App() {
     );
     setPaneState({ panes: r.panes, focusedPaneId: r.focusedPaneId });
     setSplitRatio(r.splitRatio);
+    // Prune search state for panes that no longer exist.
+    setPaneSearch((prev) => {
+      const live = new Set(r.panes.map((p) => p.id));
+      let changed = false;
+      const next: typeof prev = {};
+      for (const [k, v] of Object.entries(prev)) {
+        if (live.has(k)) next[k] = v;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
     // If the path is no longer open anywhere, drop its tracking.
     if (closed) {
       const stillOpen = r.panes.some((p) =>
@@ -512,6 +529,38 @@ export default function App() {
     void refreshTab(activePath);
   }, [activePath, refreshTab, refreshFolder]);
 
+  const openFindInFocusedPane = useCallback(() => {
+    const id = focusedPaneIdRef.current;
+    setPaneSearch((prev) => {
+      const cur = prev[id];
+      return {
+        ...prev,
+        [id]: {
+          visible: true,
+          query: cur?.query ?? "",
+          focusBump: (cur?.focusBump ?? 0) + 1,
+        },
+      };
+    });
+  }, []);
+
+  const onSearchQueryChange = useCallback((paneId: string, query: string) => {
+    setPaneSearch((prev) => {
+      const cur = prev[paneId];
+      if (!cur) return prev;
+      if (cur.query === query) return prev;
+      return { ...prev, [paneId]: { ...cur, query } };
+    });
+  }, []);
+
+  const onSearchClose = useCallback((paneId: string) => {
+    setPaneSearch((prev) => {
+      const cur = prev[paneId];
+      if (!cur || !cur.visible) return prev;
+      return { ...prev, [paneId]: { ...cur, visible: false } };
+    });
+  }, []);
+
   const openExternalUrl = useCallback((url: string) => {
     void openUrl(url).catch((err) => {
       console.error("openUrl failed:", err);
@@ -559,6 +608,7 @@ export default function App() {
     onCloseTab: closeActiveTab,
     onNextTab: nextTab,
     onPrevTab: prevTab,
+    onFindInPage: openFindInFocusedPane,
   });
   const zoom = useZoom();
 
@@ -688,6 +738,15 @@ export default function App() {
                         hoverZone={
                           hoverZone?.paneId === pane.id ? hoverZone.zone : null
                         }
+                        searchState={
+                          paneSearch[pane.id] ?? {
+                            visible: false,
+                            query: "",
+                            focusBump: 0,
+                          }
+                        }
+                        onSearchQueryChange={onSearchQueryChange}
+                        onSearchClose={onSearchClose}
                         onActivateTab={onActivateTab}
                         onCloseTab={onCloseTab}
                         onTabMouseDown={onTabMouseDown}

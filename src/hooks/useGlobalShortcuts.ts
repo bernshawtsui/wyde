@@ -8,6 +8,7 @@ interface Shortcuts {
   onCloseTab: () => void;
   onNextTab: () => void;
   onPrevTab: () => void;
+  onFindInPage: () => void;
 }
 
 /**
@@ -17,6 +18,7 @@ interface Shortcuts {
  *   ⌘B — toggle sidebar (Obsidian / VS Code convention)
  *   ⌘R — re-read the current file from disk (manual refresh)
  *   ⌘W — close the active tab
+ *   ⌘F — open find-in-page in the focused pane
  *   ⌘⇧] — activate next tab (browser-style)
  *   ⌘⇧[ — activate previous tab
  *
@@ -30,6 +32,7 @@ export function useGlobalShortcuts({
   onCloseTab,
   onNextTab,
   onPrevTab,
+  onFindInPage,
 }: Shortcuts): void {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -63,6 +66,9 @@ export function useGlobalShortcuts({
       } else if (e.key === "w") {
         e.preventDefault();
         onCloseTab();
+      } else if (e.key === "f") {
+        e.preventDefault();
+        onFindInPage();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -75,5 +81,6 @@ export function useGlobalShortcuts({
     onCloseTab,
     onNextTab,
     onPrevTab,
+    onFindInPage,
   ]);
 }

@@ -16,6 +16,7 @@ function setup() {
     onCloseTab: vi.fn(noop),
     onNextTab: vi.fn(noop),
     onPrevTab: vi.fn(noop),
+    onFindInPage: vi.fn(noop),
   };
   renderHook(() => useGlobalShortcuts(handlers));
   return handlers;
@@ -63,6 +64,13 @@ describe("useGlobalShortcuts", () => {
     const h = setup();
     dispatch("w");
     expect(h.onCloseTab).toHaveBeenCalledTimes(1);
+  });
+
+  it("⌘F calls onFindInPage and preventDefaults", () => {
+    const h = setup();
+    const e = dispatch("f");
+    expect(h.onFindInPage).toHaveBeenCalledTimes(1);
+    expect(e.defaultPrevented).toBe(true);
   });
 
   it("⌘⇧] and ⌘⇧} both call onNextTab", () => {

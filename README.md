@@ -60,8 +60,8 @@ stays byte-identical.
 - **GFM tables only.** No support for alignment beyond what GFM offers.
 - **Column widths reset** on every file open. This is intentional — see
   above — but if it bites you, that's the trade-off you're choosing.
-- **One folder per window** (Obsidian-style). No tabs, no multi-folder
-  view inside a single window. ⌘N opens a new window for a different
+- **One folder per window** (Obsidian-style). No multi-folder view
+  inside a single window; ⌘N opens a new window for a different
   folder.
 - **No code signing or auto-update.** Casual-share distribution; if you
   want notarization or in-app updates, that's a separate setup.
@@ -100,18 +100,100 @@ launches are normal double-clicks from the dock or Spotlight.
 > the System Settings detour is the new official path for any app
 > not signed with a paid Apple Developer ID.
 
-## Use
+## Features
 
-- Drag a folder onto the window, or **⌘O** to pick one.
-- **⌘N** opens an empty new window — drop a different folder there
-  for an Obsidian-style multi-vault setup.
-- **⌘B** toggles the sidebar.
-- **⌘+** / **⌘-** / **⌘0** zoom in / out / reset.
-- Click a cell to edit; double-click a paragraph or heading. **Enter**
-  or blur saves, **Esc** cancels.
-- **⌘+click** a link to open it in your default browser.
-- External edits to the open file refresh the view automatically
-  (deferred while you're editing a cell).
+### Wide tables
+Real `<table>` elements with draggable column dividers. Drag a column
+edge to widen it; column widths are remembered for the duration of the
+session but never written to disk.
+
+### Inline editing
+- **Cells** — click once to edit.
+- **Paragraphs, list items, ATX headings (`# … ######`)** — double-click
+  to edit the raw markdown for that block.
+- **Enter** (or blur) saves; **Esc** cancels. In multiline blocks
+  (paragraphs, list items), **Enter** inserts a newline and **⌘Enter**
+  saves.
+- Edits write back surgically — only the changed block is rewritten,
+  so `git diff` stays clean.
+
+### Tabs and split-screen
+- Click a file in the sidebar to open it in a tab.
+- Drag a tab to the **left** or **right** side of the window to open a
+  second pane side-by-side. Drag a tab onto the other pane's tab bar
+  to move it back.
+- Each pane has its own active tab, scroll position, and find-bar.
+
+### Find in document (⌘F)
+- Opens a per-pane search bar at the top of the focused pane.
+- All matches highlight yellow; the active match highlights orange and
+  scrolls into view.
+- Case-insensitive. **Enter** / **↓** = next, **Shift+Enter** / **↑** =
+  previous, **Esc** closes the bar.
+
+### Mermaid diagrams
+- Fenced ` ```mermaid ` blocks render as SVG with a toolbar for
+  **zoom in / out / fit / reset**.
+- **⌘-scroll** (or **Ctrl-scroll**) over a diagram zooms; drag to pan.
+
+### Frontmatter properties panel
+YAML frontmatter is parsed and shown above the document as a
+key/value panel; the raw frontmatter stays in the file untouched.
+
+### Live file watcher
+External edits to the open file refresh the view automatically
+(deferred while you're mid-edit in a cell or block, then applied as
+soon as you finish).
+
+---
+
+## Keyboard shortcuts
+
+### Folder & window
+| Shortcut | Action |
+| --- | --- |
+| **⌘O** | Open folder |
+| **⌘N** | New empty window |
+| **⌘B** | Toggle sidebar |
+| **⌘R** | Reload the active file from disk |
+
+### Tabs
+| Shortcut | Action |
+| --- | --- |
+| **⌘W** | Close the active tab in the focused pane |
+| **⌘⇧]** | Next tab |
+| **⌘⇧[** | Previous tab |
+| _drag tab to side_ | Open a split-screen pane |
+
+### Find in document
+| Shortcut | Action |
+| --- | --- |
+| **⌘F** | Open the find bar in the focused pane (or re-focus it) |
+| **Enter** / **↓** | Next match |
+| **⇧Enter** / **↑** | Previous match |
+| **Esc** | Close the find bar |
+
+### Zoom
+| Shortcut | Action |
+| --- | --- |
+| **⌘+** / **⌘=** | Zoom in |
+| **⌘-** | Zoom out |
+| **⌘0** | Reset zoom |
+
+### Editing
+| Shortcut | Action |
+| --- | --- |
+| _click cell_ | Edit a table cell |
+| _double-click block_ | Edit a paragraph, list item, or ATX heading |
+| **Enter** | Save (or insert newline in multiline blocks) |
+| **⌘Enter** | Save (multiline blocks only) |
+| **Esc** | Cancel the edit |
+
+### Other
+| Shortcut | Action |
+| --- | --- |
+| **⌘+click** a link | Open the link in your default browser |
+| **⌘-scroll** over a diagram | Zoom Mermaid diagram |
 
 ---
 

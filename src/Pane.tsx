@@ -1,7 +1,15 @@
+import { useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { SearchBar } from "./SearchBar";
 import { TabBar } from "./TabBar";
 import { TabContent } from "./TabContent";
 import type { Pane as PaneState, DropZone } from "./lib/panes";
+
+interface PaneSearchState {
+  visible: boolean;
+  query: string;
+  focusBump: number;
+}
 
 interface PaneProps {
   pane: PaneState;
@@ -19,6 +27,9 @@ interface PaneProps {
   canSplitSelf: boolean;
   /** Which zone within THIS pane is currently under the cursor (if any). */
   hoverZone: DropZone | null;
+  searchState: PaneSearchState;
+  onSearchQueryChange: (paneId: string, query: string) => void;
+  onSearchClose: (paneId: string) => void;
   onActivateTab: (paneId: string, index: number) => void;
   onCloseTab: (paneId: string, index: number) => void;
   /** Mouse-down on a tab; App promotes to a drag past the movement threshold. */
@@ -41,6 +52,9 @@ export function Pane({
   isDragSource,
   canSplitSelf,
   hoverZone,
+  searchState,
+  onSearchQueryChange,
+  onSearchClose,
   onActivateTab,
   onCloseTab,
   onTabMouseDown,
@@ -52,6 +66,8 @@ export function Pane({
   onWatcherChange,
   onOpenUrl,
 }: PaneProps) {
+  const paneBodyRef = useRef<HTMLDivElement | null>(null);
+  const activeTab = pane.tabs[pane.activeIndex];
   // During a drag, each pane is in exactly one of three modes:
   //
   //  - SELF-SPLIT: this pane is the source AND can split itself (single-pane
@@ -86,7 +102,19 @@ export function Pane({
           onTabMouseDown={onTabMouseDown}
         />
       </div>
-      <div className="pane-body">
+      <div className="pane-body" ref={paneBodyRef}>
+        {searchState.visible && activeTab && (
+          <SearchBar
+            paneId={pane.id}
+            query={searchState.query}
+            activeTabPath={activeTab.path}
+            source={activeTab.source}
+            containerRef={paneBodyRef}
+            focusBump={searchState.focusBump}
+            onChange={(q) => onSearchQueryChange(pane.id, q)}
+            onClose={() => onSearchClose(pane.id)}
+          />
+        )}
         {pane.tabs.length === 0 ? (
           <div className="content">
             <div className="content-inner">
