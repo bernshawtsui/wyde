@@ -89,27 +89,33 @@ export function Sidebar({
   onSelect,
 }: SidebarProps) {
   const tree = useMemo(() => buildTree(files), [files]);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Tracks which directories are currently expanded. Default is empty, so all
+  // directories start collapsed; the user opens what they want, and the effect
+  // below auto-expands ancestors of the selected file.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
-  // Auto-uncollapse ancestors of the selected file when selection changes.
+  // Auto-expand ancestors of the selected file when selection changes.
   useEffect(() => {
     if (!selectedPath) return;
     const ancestors = collectAncestors(files, selectedPath);
     if (ancestors.length === 0) return;
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       let changed = false;
       const next = new Set(prev);
       for (const a of ancestors) {
-        if (next.delete(a)) changed = true;
+        if (!next.has(a)) {
+          next.add(a);
+          changed = true;
+        }
       }
       return changed ? next : prev;
     });
   }, [selectedPath, files]);
 
   function toggle(relPath: string) {
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(relPath)) next.delete(relPath);
       else next.add(relPath);
@@ -158,7 +164,7 @@ export function Sidebar({
               key={nodeKey(node)}
               node={node}
               depth={0}
-              collapsed={collapsed}
+              expanded={expanded}
               selectedPath={selectedPath}
               openPaths={openPaths}
               onToggle={toggle}
@@ -179,7 +185,7 @@ function nodeKey(n: TreeNode): string {
 interface TreeItemProps {
   node: TreeNode;
   depth: number;
-  collapsed: Set<string>;
+  expanded: Set<string>;
   selectedPath: string | null;
   openPaths?: ReadonlySet<string>;
   onToggle: (relPath: string) => void;
@@ -189,7 +195,7 @@ interface TreeItemProps {
 function TreeItem({
   node,
   depth,
-  collapsed,
+  expanded,
   selectedPath,
   openPaths,
   onToggle,
@@ -213,7 +219,7 @@ function TreeItem({
       </button>
     );
   }
-  const isCollapsed = collapsed.has(node.relPath);
+  const isExpanded = expanded.has(node.relPath);
   return (
     <>
       <button
@@ -222,16 +228,16 @@ function TreeItem({
         style={{ paddingLeft: `${indent}px` }}
         onClick={() => onToggle(node.relPath)}
       >
-        <span className={`chevron${isCollapsed ? "" : " open"}`}>▶</span>
+        <span className={`chevron${isExpanded ? " open" : ""}`}>▶</span>
         <span className="dir-name">{node.name}</span>
       </button>
-      {!isCollapsed &&
+      {isExpanded &&
         node.children.map((child) => (
           <TreeItem
             key={nodeKey(child)}
             node={child}
             depth={depth + 1}
-            collapsed={collapsed}
+            expanded={expanded}
             selectedPath={selectedPath}
             openPaths={openPaths}
             onToggle={onToggle}

@@ -17,29 +17,37 @@ describe("Sidebar", () => {
     expect(screen.getByText(/no \.md files/i)).toBeInTheDocument();
   });
 
-  it("builds a tree with directories above files at each level", () => {
+  it("builds a tree with directories above files at each level", async () => {
+    const user = userEvent.setup();
     render(<Sidebar files={sample} selectedPath={null} onSelect={() => {}} />);
     // Top-level entries: directory `sub`, then files a.md, z.md.
     expect(screen.getByText("sub")).toBeInTheDocument();
     expect(screen.getByText("a.md")).toBeInTheDocument();
     expect(screen.getByText("z.md")).toBeInTheDocument();
-    // Child files under `sub` (default-expanded).
+    // Subfolders start collapsed; children appear only after expanding.
+    expect(screen.queryByText("b.md")).not.toBeInTheDocument();
+    expect(screen.queryByText("sub2")).not.toBeInTheDocument();
+    await user.click(screen.getByText("sub"));
     expect(screen.getByText("b.md")).toBeInTheDocument();
     expect(screen.getByText("sub2")).toBeInTheDocument();
+    await user.click(screen.getByText("sub2"));
     expect(screen.getByText("c.md")).toBeInTheDocument();
   });
 
-  it("toggling a directory hides its children", async () => {
+  it("toggling a directory expands then re-collapses its children", async () => {
     const user = userEvent.setup();
     render(<Sidebar files={sample} selectedPath={null} onSelect={() => {}} />);
     const subDir = screen.getByText("sub");
+    // Collapsed by default.
+    expect(screen.queryByText("b.md")).not.toBeInTheDocument();
+    // Expand
+    await user.click(subDir);
     expect(screen.getByText("b.md")).toBeInTheDocument();
+    expect(screen.getByText("sub2")).toBeInTheDocument();
+    // Collapse again
     await user.click(subDir);
     expect(screen.queryByText("b.md")).not.toBeInTheDocument();
     expect(screen.queryByText("sub2")).not.toBeInTheDocument();
-    // Re-expand
-    await user.click(subDir);
-    expect(screen.getByText("b.md")).toBeInTheDocument();
   });
 
   it("clicking a file calls onSelect with its absolute path", async () => {
@@ -72,17 +80,14 @@ describe("Sidebar", () => {
     expect(z.className).not.toContain("selected");
   });
 
-  it("auto-uncollapses ancestors of the selected file", () => {
-    // Initial render is default-expanded so ancestors are visible.
-    // After collapsing then re-rendering with a deep selection, ancestors should expand.
+  it("auto-expands ancestors of the selected file", () => {
+    // Subfolders start collapsed, so the deep file is initially hidden.
     const { rerender } = render(
       <Sidebar files={sample} selectedPath={null} onSelect={() => {}} />
     );
-    // Sanity: c.md is initially visible
-    expect(screen.getByText("c.md")).toBeInTheDocument();
-    // Re-render with selectedPath pointing into the deep subdir — useEffect
-    // ensures ancestors are uncollapsed (no-op here since they're already
-    // expanded; this is a smoke check for the auto-uncollapse path).
+    expect(screen.queryByText("c.md")).not.toBeInTheDocument();
+    // Re-render with a deep selection — the effect should expand both
+    // `sub` and `sub/sub2` so the file becomes visible.
     rerender(
       <Sidebar
         files={sample}
@@ -100,8 +105,12 @@ describe("Sidebar", () => {
     expect(container.querySelector(".sidebar-resize")).not.toBeNull();
   });
 
-  it("nested file tree contains exactly the expected unique entries", () => {
+  it("nested file tree contains exactly the expected unique entries", async () => {
+    const user = userEvent.setup();
     render(<Sidebar files={sample} selectedPath={null} onSelect={() => {}} />);
+    // Expand all directories so every leaf is in the DOM.
+    await user.click(screen.getByText("sub"));
+    await user.click(screen.getByText("sub2"));
     const tree = screen.getByText("Files").parentElement!;
     // Spot-check the rendered list has each leaf exactly once.
     const matches = (text: string) => within(tree).getAllByText(text).length;
