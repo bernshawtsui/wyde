@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import type { MarkdownFile } from "./fs";
+import type { FileEntry } from "./fs";
 
 interface SidebarProps {
-  files: MarkdownFile[];
+  files: FileEntry[];
   selectedPath: string | null;
   /** Paths currently open as tabs (subset includes selectedPath when active). */
   openPaths?: ReadonlySet<string>;
@@ -19,7 +19,7 @@ type DirNode = {
 };
 type TreeNode = FileNode | DirNode;
 
-function buildTree(files: MarkdownFile[]): TreeNode[] {
+function buildTree(files: FileEntry[]): TreeNode[] {
   type DirBuilder = { children: Map<string, DirBuilder | FileNode> };
   const root: DirBuilder = { children: new Map() };
 
@@ -65,7 +65,7 @@ function buildTree(files: MarkdownFile[]): TreeNode[] {
   return toNodes(root, "");
 }
 
-function collectAncestors(files: MarkdownFile[], targetPath: string): string[] {
+function collectAncestors(files: FileEntry[], targetPath: string): string[] {
   const f = files.find((x) => x.path === targetPath);
   if (!f) return [];
   const parts = f.name.split("/");
@@ -158,7 +158,7 @@ export function Sidebar({
       <div className="sidebar-scroll">
         <div className="sidebar-header">Files</div>
         <div className="file-tree">
-          {tree.length === 0 && <div className="empty">no .md files</div>}
+          {tree.length === 0 && <div className="empty">no files</div>}
           {tree.map((node) => (
             <TreeItem
               key={nodeKey(node)}

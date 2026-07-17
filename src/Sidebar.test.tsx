@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Sidebar } from "./Sidebar";
-import type { MarkdownFile } from "./fs";
+import type { FileEntry } from "./fs";
 
-const sample: MarkdownFile[] = [
+const sample: FileEntry[] = [
   { name: "a.md", path: "/abs/a.md" },
   { name: "sub/b.md", path: "/abs/sub/b.md" },
   { name: "sub/sub2/c.md", path: "/abs/sub/sub2/c.md" },
@@ -14,7 +14,22 @@ const sample: MarkdownFile[] = [
 describe("Sidebar", () => {
   it("renders an empty hint when there are no files", () => {
     render(<Sidebar files={[]} selectedPath={null} onSelect={() => {}} />);
-    expect(screen.getByText(/no \.md files/i)).toBeInTheDocument();
+    expect(screen.getByText(/no files/i)).toBeInTheDocument();
+  });
+
+  it("lists non-markdown files alongside markdown", async () => {
+    const user = userEvent.setup();
+    const mixed: FileEntry[] = [
+      { name: "query.sql", path: "/abs/query.sql" },
+      { name: "notes.txt", path: "/abs/notes.txt" },
+      { name: "a.md", path: "/abs/a.md" },
+    ];
+    const onSelect = vi.fn();
+    render(<Sidebar files={mixed} selectedPath={null} onSelect={onSelect} />);
+    expect(screen.getByText("query.sql")).toBeInTheDocument();
+    expect(screen.getByText("notes.txt")).toBeInTheDocument();
+    await user.click(screen.getByText("query.sql"));
+    expect(onSelect).toHaveBeenCalledWith("/abs/query.sql");
   });
 
   it("builds a tree with directories above files at each level", async () => {

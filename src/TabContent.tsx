@@ -2,18 +2,25 @@ import { useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
+import { CodeView } from "./CodeView";
 import { EditableBlock } from "./EditableBlock";
 import { EditableCell } from "./EditableCell";
 import { MermaidBlock } from "./MermaidBlock";
 import { Properties } from "./Properties";
 import { ResizableTable } from "./ResizableTable";
 import { extractFrontmatter } from "./frontmatter";
+import type { TabKind } from "./lib/fileType";
 import { useFileWatcher } from "./hooks/useFileWatcher";
 import { applyBlockEdit, applyCellEdit } from "./markdown-edit";
 
 export interface Tab {
   /** Absolute file path. Stable identity for the tab. */
   path: string;
+  /**
+   * How this file is rendered. Only `markdown` gets the editable table/block
+   * pipeline; other kinds render read-only via {@link CodeView}.
+   */
+  kind: TabKind;
   /** Current contents (in-memory; may be ahead of disk during a save). */
   source: string;
   /**
@@ -56,7 +63,11 @@ export function TabContent({
   );
   useFileWatcher(tab.path, onWatcher);
 
-  const { fm } = useMemo(() => extractFrontmatter(tab.source), [tab.source]);
+  const isMarkdown = tab.kind === "markdown";
+  const fm = useMemo(
+    () => (isMarkdown ? extractFrontmatter(tab.source).fm : null),
+    [isMarkdown, tab.source]
+  );
 
   const handleStart = useCallback(
     () => onEditStart(tab.path),
@@ -89,6 +100,23 @@ export function TabContent({
     },
     [tab.path, tab.source, onSourceCommit]
   );
+
+  // Non-markdown files render read-only via CodeView (raw text, SQL
+  // highlighting, or a binary placeholder). None of the markdown editing
+  // pipeline below applies, so return before it.
+  if (tab.kind !== "markdown") {
+    return (
+      <div
+        className="content"
+        style={{ display: isActive ? "block" : "none" }}
+        data-path={tab.path}
+      >
+        <div className="content-inner">
+          <CodeView kind={tab.kind} source={tab.source} path={tab.path} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

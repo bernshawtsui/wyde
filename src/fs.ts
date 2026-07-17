@@ -1,12 +1,13 @@
 import {
   readDir,
-  readTextFile,
+  readFile as readBytes,
   watch,
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
+import { decodeTextFile, type DecodedFile } from "./lib/fileType";
 
-export interface MarkdownFile {
+export interface FileEntry {
   /** Path relative to the folder root, e.g. `notes/foo.md`. */
   name: string;
   /** Absolute path on disk. */
@@ -16,8 +17,14 @@ export interface MarkdownFile {
 /** Directory names skipped during recursive scans. */
 const SKIP_DIRS = new Set(["node_modules", "target", "dist", "build"]);
 
-export async function readFile(absPath: string): Promise<string> {
-  return readTextFile(absPath);
+/**
+ * Read a file and classify it as text or binary. Reads raw bytes (rather than
+ * assuming UTF-8) so binary files degrade to a placeholder instead of throwing
+ * — see {@link decodeTextFile}.
+ */
+export async function loadFile(absPath: string): Promise<DecodedFile> {
+  const bytes = await readBytes(absPath);
+  return decodeTextFile(bytes);
 }
 
 export async function writeFile(
@@ -28,14 +35,13 @@ export async function writeFile(
 }
 
 /**
- * Recursively walk `absDir` and return every non-hidden `.md` file with
- * its name set to the path relative to `absDir`. POSIX-only path math —
- * intentional, since this app targets macOS.
+ * Recursively walk `absDir` and return every non-hidden file with its `name`
+ * set to the path relative to `absDir`. All file types are listed; how each is
+ * rendered (markdown, SQL, plain text, or a binary placeholder) is decided at
+ * open time. POSIX-only path math — intentional, since this app targets macOS.
  */
-export async function listMarkdownFiles(
-  absDir: string
-): Promise<MarkdownFile[]> {
-  const files: MarkdownFile[] = [];
+export async function listFiles(absDir: string): Promise<FileEntry[]> {
+  const files: FileEntry[] = [];
   await walk(absDir, absDir, files);
   files.sort((a, b) => a.name.localeCompare(b.name));
   return files;
@@ -44,7 +50,7 @@ export async function listMarkdownFiles(
 async function walk(
   absDir: string,
   rootDir: string,
-  out: MarkdownFile[]
+  out: FileEntry[]
 ): Promise<void> {
   let entries;
   try {
@@ -59,7 +65,7 @@ async function walk(
     if (e.isDirectory) {
       if (SKIP_DIRS.has(e.name)) continue;
       await walk(childAbs, rootDir, out);
-    } else if (e.isFile && e.name.endsWith(".md")) {
+    } else if (e.isFile) {
       const rel = childAbs.startsWith(rootDir + "/")
         ? childAbs.slice(rootDir.length + 1)
         : e.name;

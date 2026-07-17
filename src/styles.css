@@ -14,6 +14,10 @@
   --accent-strong: #2563eb;
   --accent-on: #ffffff;
   --code-bg: #f3f4f6;
+  --syntax-keyword: #0550ae;
+  --syntax-string: #0a7d33;
+  --syntax-number: #9a3412;
+  --syntax-comment: #6b7280;
   --error: #b91c1c;
   --error-bg: #fef2f2;
   --error-border: rgba(220, 38, 38, 0.25);
@@ -48,6 +52,10 @@
     --accent-strong: #8ab4ff;
     --accent-on: #0e1014;
     --code-bg: #1a1d22;
+    --syntax-keyword: #7aa2f7;
+    --syntax-string: #9ece6a;
+    --syntax-number: #e0af68;
+    --syntax-comment: #8b93a3;
     --error: #f87171;
     --error-bg: rgba(248, 113, 113, 0.08);
     --error-border: rgba(248, 113, 113, 0.3);
@@ -588,6 +596,84 @@ body.tab-dragging * {
 .content pre code {
   background: transparent;
   padding: 0;
+}
+
+/* Raw view for non-markdown files: full-width preformatted text, no card
+   chrome. `.content pre.code-view` beats the generic `.content pre` above. */
+.content pre.code-view {
+  margin: 0;
+  padding: 4px 0 40px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow-x: auto;
+  white-space: pre;
+  font-size: 12.5px;
+  line-height: 1.65;
+  tab-size: 4;
+}
+
+.content pre.code-view code {
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  white-space: pre;
+}
+
+/* SQL renders in a fixed dark "editor" panel regardless of the app theme. The
+   syntax-color vars are pinned to their dark-palette values here, so the
+   `.tok-*` rules below resolve to light-on-dark inside this block only. */
+.content pre.code-view.code-view-sql {
+  --syntax-keyword: #7aa2f7;
+  --syntax-string: #9ece6a;
+  --syntax-number: #e0af68;
+  --syntax-comment: #8b93a3;
+  margin: 4px 0 40px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: #1a1d22;
+  color: #e6e9ef;
+}
+
+.code-view .tok-keyword {
+  color: var(--syntax-keyword);
+  font-weight: 600;
+}
+
+.code-view .tok-string {
+  color: var(--syntax-string);
+}
+
+.code-view .tok-number {
+  color: var(--syntax-number);
+}
+
+.code-view .tok-comment {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+/* Placeholder shown when a file's bytes aren't displayable text. */
+.raw-binary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 80px 32px;
+}
+
+.raw-binary-title {
+  margin: 0;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.raw-binary p {
+  margin: 0;
+  max-width: 42ch;
 }
 
 .content blockquote {

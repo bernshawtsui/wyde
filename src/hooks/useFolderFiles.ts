@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listMarkdownFiles, watchFolder, type MarkdownFile } from "../fs";
+import { listFiles, watchFolder, type FileEntry } from "../fs";
 import { errorMessage } from "../lib/error";
 
 interface FolderFilesState {
-  files: MarkdownFile[];
+  files: FileEntry[];
   error: string | null;
   refresh: () => void;
 }
 
-function sameFileList(a: MarkdownFile[], b: MarkdownFile[]): boolean {
+function sameFileList(a: FileEntry[], b: FileEntry[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     if (a[i].path !== b[i].path) return false;
@@ -17,14 +17,14 @@ function sameFileList(a: MarkdownFile[], b: MarkdownFile[]): boolean {
 }
 
 /**
- * Recursively list all `.md` files under `folderPath`, and keep the list in
- * sync with the filesystem via a recursive directory watcher. Returns the
+ * Recursively list all non-hidden files under `folderPath`, and keep the list
+ * in sync with the filesystem via a recursive directory watcher. Returns the
  * current list, any walk error, and a `refresh()` to force a manual rescan.
  * Re-runs whenever `folderPath` changes; in-flight walks for an old folder
  * are discarded by a cancellation flag.
  */
 export function useFolderFiles(folderPath: string | null): FolderFilesState {
-  const [files, setFiles] = useState<MarkdownFile[]>([]);
+  const [files, setFiles] = useState<FileEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const rescanRef = useRef<() => void>(() => {});
 
@@ -39,7 +39,7 @@ export function useFolderFiles(folderPath: string | null): FolderFilesState {
     let unwatch: (() => void) | undefined;
 
     const rescan = () => {
-      listMarkdownFiles(folderPath)
+      listFiles(folderPath)
         .then((list) => {
           if (cancelled) return;
           // Skip setState when the path list is identical — saves to an

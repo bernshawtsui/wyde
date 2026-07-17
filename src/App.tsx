@@ -10,7 +10,8 @@ import {
 import { Sidebar } from "./Sidebar";
 import { Pane } from "./Pane";
 import { type Tab } from "./TabContent";
-import { type MarkdownFile, readFile, writeFile } from "./fs";
+import { loadFile, writeFile } from "./fs";
+import { type DecodedFile, fileKindForPath, type TabKind } from "./lib/fileType";
 import { useDragDropFolder } from "./hooks/useDragDropFolder";
 import { useFolderFiles } from "./hooks/useFolderFiles";
 import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
@@ -33,6 +34,15 @@ import {
 const SPLIT_MIN = 0.2;
 const SPLIT_MAX = 0.8;
 const DRAG_THRESHOLD_PX = 5;
+
+/** Derive a tab's rendered kind and in-memory text from a loaded file. */
+function tabFieldsFor(
+  path: string,
+  loaded: DecodedFile
+): { kind: TabKind; source: string } {
+  if (loaded.kind === "binary") return { kind: "binary", source: "" };
+  return { kind: fileKindForPath(path), source: loaded.text };
+}
 
 export default function App() {
   const [folderPath, setFolderPath] = useState<string | null>(null);
@@ -165,13 +175,13 @@ export default function App() {
 
   const refreshTab = useCallback(async (path: string) => {
     try {
-      const text = await readFile(path);
+      const fields = tabFieldsFor(path, await loadFile(path));
       setPaneState((prev) => ({
         ...prev,
         panes: prev.panes.map((p) => ({
           ...p,
           tabs: p.tabs.map((t) =>
-            t.path === path ? { ...t, source: text } : t
+            t.path === path ? { ...t, ...fields } : t
           ),
         })),
       }));
@@ -249,10 +259,9 @@ export default function App() {
       return;
     }
     try {
-      const text = await readFile(path);
       const newTab: Tab = {
         path,
-        source: text,
+        ...tabFieldsFor(path, await loadFile(path)),
         widthsByTableOffset: {},
       };
       const target = focusedPaneIdRef.current;
@@ -445,7 +454,9 @@ export default function App() {
     [openTab]
   );
 
-  // Auto-pick test.md or first file when the folder loads / changes.
+  // Auto-pick a file when the folder loads / changes. Prefer test.md, then the
+  // first markdown file, then the first file of any kind — so a fresh open
+  // lands on readable prose rather than, say, a binary.
   useEffect(() => {
     if (!folderPath) return;
     if (files.length === 0) {
@@ -456,7 +467,10 @@ export default function App() {
     // Only auto-pick when nothing is open yet (fresh folder open).
     if (allOpenPaths(panesRef.current).length > 0) return;
     const test = files.find((f) => f.name === "test.md");
-    const first = test ?? files[0];
+    const firstMarkdown = files.find(
+      (f) => fileKindForPath(f.path) === "markdown"
+    );
+    const first = test ?? firstMarkdown ?? files[0];
     void openTab(first.path);
   }, [files, folderPath, openTab]);
 
@@ -776,6 +790,3 @@ export default function App() {
     </div>
   );
 }
-
-// MarkdownFile is referenced indirectly via Sidebar; keep the type import alive.
-export type { MarkdownFile };

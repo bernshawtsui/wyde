@@ -14,7 +14,7 @@ import {
 import type { Tab } from "../TabContent";
 
 function tab(path: string): Tab {
-  return { path, source: `# ${path}`, widthsByTableOffset: {} };
+  return { path, kind: "markdown", source: `# ${path}`, widthsByTableOffset: {} };
 }
 
 function singlePane(...tabs: Tab[]): Pane[] {
@@ -151,6 +151,7 @@ describe("movePaneTab", () => {
   it("PRESERVES Tab object identity across a move (column widths survive)", () => {
     const movedTab: Tab = {
       path: "/b",
+      kind: "markdown",
       source: "...",
       widthsByTableOffset: { 12: [100, 200, 300] },
     };

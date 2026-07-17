@@ -5,7 +5,7 @@ import { TabBar } from "./TabBar";
 import type { Tab } from "./TabContent";
 
 function makeTab(path: string): Tab {
-  return { path, source: "", widthsByTableOffset: {} };
+  return { path, kind: "markdown", source: "", widthsByTableOffset: {} };
 }
 
 const PANE_ID = "pane-1";
