@@ -5,7 +5,7 @@
  */
 
 /** How a text file is rendered. */
-export type FileKind = "markdown" | "sql" | "text";
+export type FileKind = "markdown" | "sql" | "yaml" | "text";
 
 /** Effective kind of an open tab — a {@link FileKind}, or `binary` when the
  * file's bytes don't decode as UTF-8 text. */
@@ -13,8 +13,8 @@ export type TabKind = FileKind | "binary";
 
 /**
  * Classify a path by its extension. Pure and case-insensitive. Anything that
- * isn't recognized markdown or SQL is treated as plain `text`; the binary case
- * is never decided here (it needs the bytes).
+ * isn't a recognized highlighted kind is treated as plain `text`; the binary
+ * case is never decided here (it needs the bytes).
  */
 export function fileKindForPath(path: string): FileKind {
   const base = path.slice(path.lastIndexOf("/") + 1);
@@ -25,6 +25,7 @@ export function fileKindForPath(path: string): FileKind {
   const ext = dot > 0 ? base.slice(dot + 1).toLowerCase() : "";
   if (ext === "md" || ext === "markdown") return "markdown";
   if (ext === "sql") return "sql";
+  if (ext === "yaml" || ext === "yml") return "yaml";
   return "text";
 }
 

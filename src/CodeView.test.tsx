@@ -10,7 +10,7 @@ describe("CodeView", () => {
     const pre = container.querySelector("pre.code-view")!;
     expect(pre).not.toBeNull();
     expect(pre.textContent).toBe("line one\nline two");
-    // Plain text follows the app theme; only SQL gets the dark panel.
+    // Plain text follows the app theme; highlighted code gets the dark panel.
     expect(pre.classList.contains("code-view-sql")).toBe(false);
   });
 
@@ -37,6 +37,33 @@ describe("CodeView", () => {
     // Full text is preserved for searching / copy.
     expect(container.querySelector("pre.code-view")!.textContent).toBe(
       "SELECT id FROM users -- note\nWHERE name = 'x'"
+    );
+  });
+
+  it("syntax-highlights YAML keys, values, and comments", () => {
+    const { container } = render(
+      <CodeView
+        kind="yaml"
+        source={"# config\nname: wyde\nport: 8080\nenabled: true"}
+        path="/c/config.yaml"
+      />
+    );
+    // YAML shares the always-dark editor panel with SQL.
+    expect(
+      container.querySelector("pre.code-view.code-view-yaml")
+    ).not.toBeNull();
+    const keys = Array.from(container.querySelectorAll(".tok-key")).map(
+      (e) => e.textContent
+    );
+    expect(keys).toEqual(["name", "port", "enabled"]);
+    expect(container.querySelector(".tok-comment")?.textContent).toBe(
+      "# config"
+    );
+    expect(container.querySelector(".tok-number")?.textContent).toBe("8080");
+    expect(container.querySelector(".tok-boolean")?.textContent).toBe("true");
+    // Full text is preserved for searching / copy.
+    expect(container.querySelector("pre.code-view")!.textContent).toBe(
+      "# config\nname: wyde\nport: 8080\nenabled: true"
     );
   });
 

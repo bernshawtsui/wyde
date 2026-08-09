@@ -33,9 +33,8 @@ unhappy ways:
   long content wraps awkwardly or gets cut off; you can't read what's
   in front of you.
 - _Pad the source with whitespace_ to "fix" rendering. This produces
-  noisy diffs, fights every other tool that touches the same file
-  (Claude Code in particular keeps re-padding tables out from under
-  you), and makes `git blame` useless.
+  noisy diffs, fights automated tools that touch the same file, and
+  makes `git blame` useless.
 
 wyde takes a third path: **column width is purely a session-only
 display concern.** Drag a column wider, read your table comfortably,
@@ -101,6 +100,14 @@ launches are normal double-clicks from the dock or Spotlight.
 > not signed with a paid Apple Developer ID.
 
 ## Features
+
+### Text and code files
+
+- The sidebar lists all non-hidden files in the selected folder.
+- `.sql`, `.yaml`, and `.yml` files render in a dark code panel with syntax
+  highlighting.
+- Other UTF-8 text files render verbatim and remain searchable.
+- Binary files show a placeholder instead of a decoding error.
 
 ### Wide tables
 Real `<table>` elements with draggable column dividers. Drag a column

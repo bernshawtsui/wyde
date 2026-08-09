@@ -18,6 +18,8 @@
   --syntax-string: #0a7d33;
   --syntax-number: #9a3412;
   --syntax-comment: #6b7280;
+  --syntax-key: #0b7285;
+  --syntax-boolean: #6f42c1;
   --error: #b91c1c;
   --error-bg: #fef2f2;
   --error-border: rgba(220, 38, 38, 0.25);
@@ -56,6 +58,8 @@
     --syntax-string: #9ece6a;
     --syntax-number: #e0af68;
     --syntax-comment: #8b93a3;
+    --syntax-key: #7dcfff;
+    --syntax-boolean: #bb9af7;
     --error: #f87171;
     --error-bg: rgba(248, 113, 113, 0.08);
     --error-border: rgba(248, 113, 113, 0.3);
@@ -620,14 +624,18 @@ body.tab-dragging * {
   white-space: pre;
 }
 
-/* SQL renders in a fixed dark "editor" panel regardless of the app theme. The
-   syntax-color vars are pinned to their dark-palette values here, so the
-   `.tok-*` rules below resolve to light-on-dark inside this block only. */
-.content pre.code-view.code-view-sql {
+/* Highlighted code (SQL, YAML) renders in a fixed dark "editor" panel
+   regardless of the app theme. The syntax-color vars are pinned to their
+   dark-palette values here, so the `.tok-*` rules below resolve to
+   light-on-dark inside these blocks only. */
+.content pre.code-view.code-view-sql,
+.content pre.code-view.code-view-yaml {
   --syntax-keyword: #7aa2f7;
   --syntax-string: #9ece6a;
   --syntax-number: #e0af68;
   --syntax-comment: #8b93a3;
+  --syntax-key: #7dcfff;
+  --syntax-boolean: #bb9af7;
   margin: 4px 0 40px;
   padding: 16px 18px;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -647,6 +655,15 @@ body.tab-dragging * {
 
 .code-view .tok-number {
   color: var(--syntax-number);
+}
+
+.code-view .tok-key {
+  color: var(--syntax-key);
+  font-weight: 600;
+}
+
+.code-view .tok-boolean {
+  color: var(--syntax-boolean);
 }
 
 .code-view .tok-comment {

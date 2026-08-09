@@ -15,6 +15,12 @@ describe("fileKindForPath", () => {
     expect(fileKindForPath("Query.SQL")).toBe("sql");
   });
 
+  it("recognizes yaml", () => {
+    expect(fileKindForPath("/c/config.yaml")).toBe("yaml");
+    expect(fileKindForPath("docker-compose.yml")).toBe("yaml");
+    expect(fileKindForPath("/c/CI.YML")).toBe("yaml");
+  });
+
   it("treats everything else as plain text", () => {
     expect(fileKindForPath("/a/data.json")).toBe("text");
     expect(fileKindForPath("notes.txt")).toBe("text");
